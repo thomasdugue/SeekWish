@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #1e1e1e; --bg2: #252526; --bg3: #2d2d30; --bg4: #3e3e42;
+  --text: #cccccc; --text2: #858585; --accent: #569cd6; --accent2: #4ec9b0;
+  --green: #6a9955; --orange: #ce9178; --border: #3e3e42;
+  --red: #f44747; --yellow: #dcdcaa;
+  --font: "SF Pro Text", -apple-system, system-ui, sans-serif;
+  --mono: "SF Mono", "Menlo", "Monaco", monospace;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.5; padding: 24px; }
+.screens { display: flex; flex-direction: column; gap: 40px; max-width: 780px; margin: 0 auto; }
+.screen { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.screen-header { background: var(--bg3); padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-r { background: #ff5f57; } .dot-y { background: #ffbd2e; } .dot-g { background: #28c940; }
+.screen-title { font-size: 12px; color: var(--text2); margin-left: 8px; font-family: var(--mono); }
+.screen-body { padding: 20px; }
+.screen-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.step-num.done { background: var(--green); }
+.step-num.pending { background: var(--bg4); color: var(--text2); }
+.gtk-panel { display: flex; flex-direction: column; gap: 12px; }
+.gtk-group { background: var(--bg3); border-radius: 6px; padding: 14px 16px; }
+.gtk-group-title { font-size: 12px; font-weight: 600; color: var(--accent2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.gtk-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.gtk-row:last-child { border-bottom: none; }
+.gtk-label { color: var(--text); font-size: 13px; }
+.gtk-desc { color: var(--text2); font-size: 11px; margin-top: 2px; }
+.gtk-input { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 5px 8px; width: 160px; text-align: right; }
+.gtk-select { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12px; padding: 5px 8px; }
+.gtk-toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--bg4); position: relative; display: inline-block; }
+.gtk-toggle.on { background: var(--accent); }
+.gtk-toggle::after { content: ''; width: 16px; height: 16px; border-radius: 50%; background: white; position: absolute; top: 2px; left: 2px; transition: transform .15s; }
+.gtk-toggle.on::after { transform: translateX(16px); }
+.gtk-textarea { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 8px; width: 100%; resize: none; }
+.url-input-area { display: flex; gap: 8px; }
+.url-input-area input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 13px; padding: 10px 14px; outline: none; transition: border-color .2s; }
+.url-input-area input:focus { border-color: var(--accent); }
+.url-input-area input::placeholder { color: var(--text2); }
+.btn-import { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: opacity .15s; font-family: var(--font); }
+.btn-import:hover { opacity: .85; }
+.btn-import:disabled { background: var(--bg4); color: var(--text2); cursor: not-allowed; opacity: 1; }
+.provider-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 3px 10px; border-radius: 4px; font-weight: 600; margin-top: 10px; }
+.pb-deezer { background: rgba(78,201,176,.12); color: var(--accent2); }
+.pb-spotify { background: rgba(106,153,85,.15); color: var(--green); }
+.pb-ytmusic { background: rgba(244,71,71,.12); color: var(--red); }
+.status-line { font-size: 12px; color: var(--text2); margin-top: 10px; display: flex; align-items: center; gap: 6px; }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--bg4); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.track-list-header { display: grid; grid-template-columns: 40px 1fr 1fr 60px; gap: 8px; padding: 8px 12px; background: var(--bg3); border-radius: 6px 6px 0 0; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); font-weight: 600; }
+.track-row { display: grid; grid-template-columns: 40px 1fr 1fr 60px; gap: 8px; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.03); font-size: 12px; align-items: center; transition: background .1s; }
+.track-row:hover { background: rgba(255,255,255,.02); }
+.track-num { color: var(--text2); text-align: center; font-family: var(--mono); font-size: 11px; }
+.track-title { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-artist { color: var(--accent); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-duration { color: var(--text2); text-align: right; font-family: var(--mono); font-size: 11px; }
+.track-count { font-size: 12px; color: var(--text2); padding: 12px; text-align: center; background: var(--bg3); border-radius: 0 0 6px 6px; }
+.track-count strong { color: var(--accent2); }
+.chat { background: var(--bg); border-radius: 6px; padding: 12px; font-family: var(--mono); font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
+.chat-line { display: flex; gap: 6px; }
+.chat-time { color: var(--text2); min-width: 52px; flex-shrink: 0; }
+.chat-system { color: var(--green); white-space: nowrap; }
+.chat-msg { color: var(--text); word-break: break-word; }
+.chat-cmd { color: var(--yellow); }
+.transfer-list { font-family: var(--mono); font-size: 11px; }
+.transfer-header { display: grid; grid-template-columns: 24px 200px 80px 100px 60px 100px; gap: 4px; padding: 6px 8px; background: var(--bg3); border-radius: 4px 4px 0 0; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; font-size: 10px; }
+.transfer-row { display: grid; grid-template-columns: 24px 200px 80px 100px 60px 100px; gap: 4px; padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.03); align-items: center; }
+.transfer-file { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transfer-user { color: var(--accent); }
+.tq-pass { font-size: 10px; padding: 2px 6px; border-radius: 3px; background: rgba(106,153,85,.2); color: var(--green); text-align: center; }
+.ts-paused { color: var(--yellow); }
+.transfer-size { color: var(--text2); text-align: right; }
+.flow { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 16px 0; }
+.flow-step { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 20px; text-align: center; min-width: 280px; }
+.flow-step .ft { font-weight: 600; color: var(--text); font-size: 13px; }
+.flow-step .fd { color: var(--text2); font-size: 11px; margin-top: 2px; }
+.flow-arrow { color: var(--text2); font-size: 18px; padding: 4px 0; }
+.flow-branch { display: flex; gap: 16px; }
+.flow-branch .flow-step { min-width: 180px; }
+.flow-step.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.flow-step.prov { border-color: var(--accent2); }
+.badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+.badge-s { background: rgba(78,201,176,.15); color: var(--accent2); }
+.badge-f { background: rgba(206,145,120,.15); color: var(--orange); }
+.badge-r { background: rgba(244,71,71,.15); color: var(--red); }
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+.annotation { font-size: 11px; color: var(--text2); margin-top: 12px; padding: 8px 12px; background: rgba(86,156,214,.08); border-left: 2px solid var(--accent); border-radius: 0 4px 4px 0; }
+.hidden { display: none !important; }
+.fade-in { animation: fadeIn .3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.example-urls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.example-url { font-size: 11px; padding: 4px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; color: var(--text2); transition: all .15s; font-family: var(--mono); }
+.example-url:hover { border-color: var(--accent); color: var(--text); }
+</style>
+
+<div class="screens">
+
+  <!-- ═══════ SCREEN 1: Settings ═══════ -->
+  <div class="screen">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title">Nicotine+ → Preferences → Plugins → Audiophile Wishlist</span></div>
+    <div class="screen-body">
+      <div class="screen-label"><span class="step-num">1</span> Settings du plugin</div>
+      <div class="gtk-panel">
+        <div class="gtk-group">
+          <div class="gtk-group-title">General</div>
+          <div class="gtk-row"><div><div class="gtk-label">Enable quality filter</div><div class="gtk-desc">Filter wishlist search results by audio quality</div></div><div class="gtk-toggle on"></div></div>
+          <div class="gtk-row"><div><div class="gtk-label">Download mode</div><div class="gtk-desc">auto = immediate / semi = paused for review</div></div><select class="gtk-select"><option>semi</option><option>auto</option></select></div>
+        </div>
+        <div class="gtk-group">
+          <div class="gtk-group-title">Quality criteria</div>
+          <div class="gtk-row"><div><div class="gtk-label">Allowed formats</div></div></div>
+          <textarea class="gtk-textarea" rows="2">flac wav alac ape wv aiff</textarea>
+          <div class="gtk-row" style="margin-top:8px"><div><div class="gtk-label">Min bitrate (kbps)</div><div class="gtk-desc">Lossless = 800–1500+</div></div><input class="gtk-input" value="800"/></div>
+          <div class="gtk-row"><div><div class="gtk-label">Min sample rate (Hz)</div><div class="gtk-desc">CD = 44100 / Hi-Res = 96000+</div></div><input class="gtk-input" value="44100"/></div>
+          <div class="gtk-row"><div><div class="gtk-label">Min bit depth</div><div class="gtk-desc">CD = 16 / Hi-Res = 24</div></div><input class="gtk-input" value="16"/></div>
+          <div class="gtk-row"><div><div class="gtk-label">Min file size (MB)</div><div class="gtk-desc">4-min FLAC ~ 20–40 MB</div></div><input class="gtk-input" value="5"/></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 2: URL Input ═══════ -->
+  <div class="screen">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title">Import — Coller l'URL d'une playlist publique</span></div>
+    <div class="screen-body">
+      <div class="screen-label"><span class="step-num">2</span> Importer une playlist</div>
+      <div class="url-input-area">
+        <input type="text" id="urlInput" placeholder="Coller ici une URL Deezer, Spotify ou YouTube Music..." spellcheck="false"/>
+        <button class="btn-import" id="btnImport" onclick="handleImport()">Importer</button>
+      </div>
+      <div id="providerBadge" class="hidden"></div>
+      <div class="example-urls">
+        <span style="font-size:11px;color:var(--text2);line-height:26px">Essayer :</span>
+        <div class="example-url" onclick="setUrl('https://www.deezer.com/playlist/908622995')">Deezer — Hits du moment</div>
+        <div class="example-url" onclick="setUrl('https://www.deezer.com/playlist/1313621735')">Deezer — Jazz Classics</div>
+        <div class="example-url" onclick="setUrl('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M')">Spotify — Today's Hits</div>
+        <div class="example-url" onclick="setUrl('https://music.youtube.com/playlist?list=RDCLAK5uy_kmPRjHDECIo1OFBqklhFTbTa7x-eZ0zOo')">YT Music — Chill Mix</div>
+      </div>
+      <div id="statusLine" class="status-line hidden"></div>
+      <div id="errorLine" class="hidden" style="margin-top:10px;font-size:12px;color:var(--red)"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 3: Track List (dynamic) ═══════ -->
+  <div class="screen hidden" id="screen3">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title" id="s3title">Tracks extraites</span></div>
+    <div class="screen-body">
+      <div class="screen-label"><span class="step-num done">3</span> <span id="s3label">Tracks trouvées</span></div>
+      <div id="trackListContainer"></div>
+      <div id="trackCount" class="track-count hidden"></div>
+      <div class="annotation">Dans Nicotine+, chaque track serait ajoutée comme wish via <code>core.search.add_wish("artiste titre")</code>. La recherche Soulseek démarre automatiquement.</div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 4: Chat simulation (dynamic) ═══════ -->
+  <div class="screen hidden" id="screen4">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title">Nicotine+ — Chat log après import</span></div>
+    <div class="screen-body">
+      <div class="screen-label"><span class="step-num done">4</span> Logs dans Nicotine+ (simulation)</div>
+      <div class="chat" id="chatLog"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 5: Download queue ═══════ -->
+  <div class="screen">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title">Nicotine+ → Downloads (mode semi-auto)</span></div>
+    <div class="screen-body">
+      <div class="screen-label"><span class="step-num pending">5</span> Downloads filtrés (mode semi)</div>
+      <div class="transfer-list">
+        <div class="transfer-header"><span></span><span>File</span><span>User</span><span>Quality</span><span>Size</span><span>Status</span></div>
+        <div class="transfer-row"><span style="color:var(--yellow)">&#x23F8;</span><span class="transfer-file">01 Everything In Its...flac</span><span class="transfer-user">audiophile42</span><span class="tq-pass">FLAC 44.1/16</span><span class="transfer-size">28 MB</span><span class="ts-paused">Paused</span></div>
+        <div class="transfer-row"><span style="color:var(--yellow)">&#x23F8;</span><span class="transfer-file">Wandering Star.flac</span><span class="transfer-user">lossless_hq</span><span class="tq-pass">FLAC 96/24</span><span class="transfer-size">62 MB</span><span class="ts-paused">Paused</span></div>
+        <div class="transfer-row"><span style="color:var(--yellow)">&#x23F8;</span><span class="transfer-file">03 Teardrop.flac</span><span class="transfer-user">musicsharer99</span><span class="tq-pass">FLAC 44.1/16</span><span class="transfer-size">34 MB</span><span class="ts-paused">Paused</span></div>
+      </div>
+      <div class="annotation">En mode <strong>semi</strong>, clic-droit → Retry pour lancer. En mode <strong>auto</strong>, le download est immédiat.</div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 6: /aw-status ═══════ -->
+  <div class="screen">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title">Chat — /aw-status</span></div>
+    <div class="screen-body">
+      <div class="screen-label"><span class="step-num pending">6</span> Commande /aw-status</div>
+      <div class="chat">
+        <div class="chat-line"><span class="chat-time">15:42</span><span class="chat-cmd">/aw-status</span></div>
+        <div class="chat-line"><span class="chat-time">15:42</span><span class="chat-system">[AW]</span><span class="chat-msg">── Audiophile Wishlist Status ──</span></div>
+        <div class="chat-line"><span class="chat-time" style="visibility:hidden">.</span><span class="chat-system" style="visibility:hidden">.</span><span class="chat-msg">Quality filter: ON &nbsp;|&nbsp; Mode: semi &nbsp;|&nbsp; Hook: connected<br/>Formats: flac wav alac ape wv aiff<br/>Min: 800kbps / 44100Hz / 16bit / 5MB</span></div>
+        <div class="chat-line" style="margin-top:4px"><span class="chat-time" style="visibility:hidden">.</span><span class="chat-system" style="visibility:hidden">.</span><span class="chat-msg">Playlists: <span style="color:var(--accent2)">2</span> &nbsp; Tracks: <span style="color:var(--accent2)">89</span> &nbsp; Matched: <span style="color:var(--green)">34</span> &nbsp; Filtered: <span style="color:var(--red)">156</span> &nbsp; Downloaded: <span style="color:var(--accent)">34</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SCREEN 7: Flow overview ═══════ -->
+  <div class="screen">
+    <div class="screen-header"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><span class="screen-title">Parcours utilisateur</span></div>
+    <div class="screen-body">
+      <div class="flow">
+        <div class="flow-step active"><div class="ft">1. Coller une URL</div><div class="fd">/aw-import https://deezer.com/playlist/...</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-branch">
+          <div class="flow-step prov"><div class="ft">Deezer</div><div class="fd">API REST <span class="badge badge-s">stable</span></div></div>
+          <div class="flow-step prov"><div class="ft">Spotify</div><div class="fd">Embed <span class="badge badge-f">fragile</span></div></div>
+          <div class="flow-step prov"><div class="ft">YT Music</div><div class="fd">Parse <span class="badge badge-r">risqué</span></div></div>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step"><div class="ft">2. Extraction → [{artist, title}]</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step"><div class="ft">3. Injection Wishlist N+</div><div class="fd">add_wish() → recherche Soulseek auto</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step"><div class="ft">4. Filtre qualité</div><div class="fd">Format + Bitrate + Sample rate + Bit depth + Taille</div></div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-branch">
+          <div class="flow-step" style="border-color:var(--green)"><div class="ft" style="color:var(--green)">Auto</div><div class="fd">Download immédiat</div></div>
+          <div class="flow-step" style="border-color:var(--yellow)"><div class="ft" style="color:var(--yellow)">Semi</div><div class="fd">Paused → review</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SPOTIFY_MOCK=[{artist:"Sabrina Carpenter",title:"Espresso"},{artist:"Billie Eilish",title:"Birds Of A Feather"},{artist:"Chappell Roan",title:"Good Luck, Babe!"},{artist:"Benson Boone",title:"Beautiful Things"},{artist:"Hozier",title:"Too Sweet"},{artist:"Dua Lipa",title:"Training Season"},{artist:"Taylor Swift",title:"Fortnight"},{artist:"Ariana Grande",title:"we can't be friends"},{artist:"Post Malone",title:"I Had Some Help"},{artist:"Beyoncé",title:"Texas Hold 'Em"}];
+const YTMUSIC_MOCK=[{artist:"Khruangbin",title:"Time (You and I)"},{artist:"FKJ",title:"Ylang Ylang"},{artist:"Tom Misch",title:"South of the River"},{artist:"Bonobo",title:"Kerala"},{artist:"Tycho",title:"Awake"},{artist:"Tame Impala",title:"Let It Happen"},{artist:"Washed Out",title:"Feel It All Around"},{artist:"Nils Frahm",title:"Says"}];
+
+function detectProvider(u){
+  u=u.trim();
+  let m=u.match(/deezer\.com\/(?:\w+\/)?playlist\/(\d+)/);
+  if(m) return {provider:'deezer',id:m[1]};
+  m=u.match(/open\.spotify\.com\/playlist\/([a-zA-Z0-9]+)/);
+  if(m) return {provider:'spotify',id:m[1]};
+  m=u.match(/spotify:playlist:([a-zA-Z0-9]+)/);
+  if(m) return {provider:'spotify',id:m[1]};
+  m=u.match(/(?:music\.)?youtube\.com\/playlist\?list=([a-zA-Z0-9_-]+)/);
+  if(m) return {provider:'ytmusic',id:m[1]};
+  return null;
+}
+
+function setUrl(u){
+  document.getElementById('urlInput').value=u;
+  document.getElementById('errorLine').classList.add('hidden');
+  showBadge(u);
+}
+
+function showBadge(u){
+  const el=document.getElementById('providerBadge');
+  const info=detectProvider(u);
+  if(!info){el.classList.add('hidden');return;}
+  const map={deezer:['Deezer — API REST publique (live)','pb-deezer'],spotify:['Spotify — Embed parsing (mock)','pb-spotify'],ytmusic:['YouTube Music — Page parsing (mock)','pb-ytmusic']};
+  el.className='provider-badge fade-in '+map[info.provider][1];
+  el.textContent=map[info.provider][0];
+}
+
+document.getElementById('urlInput').addEventListener('input',function(){showBadge(this.value);document.getElementById('errorLine').classList.add('hidden');});
+document.getElementById('urlInput').addEventListener('keydown',function(e){if(e.key==='Enter')handleImport();});
+
+async function handleImport(){
+  const url=document.getElementById('urlInput').value.trim();
+  const btn=document.getElementById('btnImport');
+  const status=document.getElementById('statusLine');
+  const err=document.getElementById('errorLine');
+  err.classList.add('hidden');
+
+  if(!url){err.textContent='Colle une URL de playlist pour commencer.';err.classList.remove('hidden');return;}
+  const info=detectProvider(url);
+  if(!info){err.innerHTML='URL non reconnue. Formats :<br/>• https://www.deezer.com/playlist/123<br/>• https://open.spotify.com/playlist/abc<br/>• https://music.youtube.com/playlist?list=PLxxx';err.classList.remove('hidden');return;}
+
+  btn.disabled=true; btn.textContent='Import...';
+  status.innerHTML='<div class="spinner"></div> Extraction depuis '+info.provider+'...';
+  status.classList.remove('hidden');
+
+  let tracks=[];
+  if(info.provider==='deezer'){tracks=await fetchDeezer(info.id);}
+  else if(info.provider==='spotify'){await delay(1200);tracks=SPOTIFY_MOCK;}
+  else{await delay(1500);tracks=YTMUSIC_MOCK;}
+
+  btn.disabled=false; btn.textContent='Importer';
+  status.classList.add('hidden');
+
+  if(!tracks.length){err.textContent='Aucune track trouvée. Playlist privée ou URL invalide.';err.classList.remove('hidden');return;}
+  showTracks(tracks,info.provider,url);
+}
+
+async function fetchDeezer(id){
+  try{
+    let all=[], url='https://api.deezer.com/playlist/'+id+'/tracks?limit=100';
+    while(url&&all.length<300){
+      const r=await fetch(url); const d=await r.json();
+      if(d.error||!d.data) break;
+      for(const t of d.data){const a=t.artist?t.artist.name:'';const ti=t.title||'';if(a&&ti)all.push({artist:a,title:ti,duration:t.duration||0});}
+      url=d.next||null;
+    }
+    return all;
+  }catch(e){return[];}
+}
+
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function fmtDur(s){if(!s)return'';return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
+
+function showTracks(tracks,provider,url){
+  const s3=document.getElementById('screen3');
+  const s4=document.getElementById('screen4');
+  const names={deezer:'Deezer',spotify:'Spotify (mock)',ytmusic:'YouTube Music (mock)'};
+
+  document.getElementById('s3title').textContent='Tracks extraites — '+names[provider];
+  document.getElementById('s3label').textContent=tracks.length+' tracks trouvées';
+
+  let h='<div class="track-list-header"><span>#</span><span>Titre</span><span>Artiste</span><span>Durée</span></div>';
+  tracks.forEach((t,i)=>{
+    h+='<div class="track-row"><span class="track-num">'+(i+1)+'</span><span class="track-title">'+esc(t.title)+'</span><span class="track-artist">'+esc(t.artist)+'</span><span class="track-duration">'+fmtDur(t.duration)+'</span></div>';
+  });
+  document.getElementById('trackListContainer').innerHTML=h;
+
+  const tc=document.getElementById('trackCount');
+  tc.innerHTML='<strong>'+tracks.length+' tracks</strong> seront injectées dans la Wishlist Nicotine+ → recherche Soulseek automatique avec filtre qualité';
+  tc.classList.remove('hidden');
+
+  s3.classList.remove('hidden'); s3.classList.add('fade-in');
+
+  buildChat(tracks,provider,url);
+  s4.classList.remove('hidden'); s4.classList.add('fade-in');
+
+  s3.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildChat(tracks,provider,url){
+  const el=document.getElementById('chatLog');
+  const t=i=>{const d=new Date(Date.now()+i*1000);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+  const cl=(time,tag,msg)=>'<div class="chat-line"><span class="chat-time">'+time+'</span>'+(tag==='cmd'?'<span class="chat-cmd">'+msg+'</span>':'<span class="chat-system">[AW]</span><span class="chat-msg">'+msg+'</span>')+'</div>';
+
+  const skip=Math.floor(Math.random()*5);
+  const added=tracks.length-skip;
+
+  let h='';
+  h+=cl(t(0),'cmd','/aw-import '+esc(url));
+  h+=cl(t(1),'sys','Importing from '+provider+'...');
+  h+=cl(t(3),'sys','Found '+tracks.length+' tracks. Creating wishes...');
+  h+=cl(t(4),'sys','Import complete: '+added+' wishes added, '+skip+' already existed.');
+  h+='<div class="divider"></div>';
+
+  const sample=tracks.slice(0,Math.min(4,tracks.length));
+  const users=['audiophile42','lossless_hq','flac_master','hires_audio'];
+  const quals=['FLAC 44100/16bit 1411kbps','FLAC 96000/24bit 4608kbps','FLAC 44100/16bit 1024kbps','WAV 44100/16bit 1411kbps'];
+  sample.forEach((tr,i)=>{
+    h+=cl(t(6+i),'sys','Queued (paused): '+esc(tr.title)+'.flac from '+users[i%4]+' ['+quals[i%4]+']');
+  });
+  el.innerHTML=h;
+}
+</script>

@@ -1,0 +1,45 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Install plugin",
+            "type": "shell",
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "osx": {
+                "command": "mkdir -p ~/.local/share/nicotine/plugins/audiophile_wishlist && cp audiophile_wishlist/__init__.py audiophile_wishlist/PLUGININFO ~/.local/share/nicotine/plugins/audiophile_wishlist/ && echo '✓ Installed to ~/.local/share/nicotine/plugins/audiophile_wishlist/'"
+            },
+            "linux": {
+                "command": "mkdir -p ~/.local/share/nicotine/plugins/audiophile_wishlist && cp audiophile_wishlist/__init__.py audiophile_wishlist/PLUGININFO ~/.local/share/nicotine/plugins/audiophile_wishlist/ && echo '✓ Installed to ~/.local/share/nicotine/plugins/audiophile_wishlist/'"
+            },
+            "windows": {
+                "command": "if not exist \"%AppData%\\nicotine\\plugins\\audiophile_wishlist\" mkdir \"%AppData%\\nicotine\\plugins\\audiophile_wishlist\" && copy /Y audiophile_wishlist\\__init__.py \"%AppData%\\nicotine\\plugins\\audiophile_wishlist\\\" && copy /Y audiophile_wishlist\\PLUGININFO \"%AppData%\\nicotine\\plugins\\audiophile_wishlist\\\" && echo Installed to %AppData%\\nicotine\\plugins\\audiophile_wishlist\\"
+            }
+        },
+        {
+            "label": "Run tests",
+            "type": "shell",
+            "group": { "kind": "test", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": [],
+            "osx": { "command": "python3 -m pytest tests/ -v" },
+            "linux": { "command": "python3 -m pytest tests/ -v" },
+            "windows": { "command": "python -m pytest tests/ -v" }
+        },
+        {
+            "label": "Lint (ruff)",
+            "type": "shell",
+            "group": "build",
+            "problemMatcher": [],
+            "command": "ruff check audiophile_wishlist/ tests/"
+        },
+        {
+            "label": "Type check (pyright)",
+            "type": "shell",
+            "group": "build",
+            "problemMatcher": [],
+            "command": "pyright audiophile_wishlist/"
+        }
+    ]
+}

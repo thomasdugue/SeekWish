@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+Version = "2026-03-16r01"
+Authors = ["Thomas"]
+Name = "Audiophile Wishlist"
+Description = "Enhanced wishlist with audiophile-grade quality filtering and playlist import.\n\nMode 1 — Quality filter: Automatically filters wishlist search results by audio format (FLAC, WAV, ALAC, APE, WV), minimum bitrate, sample rate, and file size. Supports full-auto download or semi-auto mode (queued paused for manual review).\n\nMode 2 — Playlist import: Import tracks from public Deezer, Spotify, or YouTube Music playlists directly into the Nicotine+ wishlist.\n\nCommands:\n- /aw-import <url> : Import a public playlist (Deezer, Spotify, YouTube Music)\n- /aw-status : Show current filter settings and statistics\n- /aw-reset-stats : Reset download/filter statistics"
