@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SeekWish — Import playlists into Nicotine+</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#FAFAFA;--bg2:#FAFAFA;--bg3:#F5F5F5;--bg4:#E5E5E5;
+  --text:#000000;--text2:#5E5E5E;--text3:#999999;
+  --accent:#DC2626;--accent2:#DC2626;--accent-dim:rgba(220,38,38,.06);
+  --green:#22C55E;--red:#DC2626;--info:#3B82F6;
+  --border:#E5E5E5;--border2:#E5E5E5;
+  --radius:0px;
+  --font:"Sora",system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",monospace;
+  --text-on-dark:#FAFAFA;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Layout */
+.app{max-width:800px;margin:0 auto;padding:48px 64px 80px}
+
+/* Hero */
+.hero{text-align:center;padding:48px 0 40px}
+.logo{font-size:48px;font-weight:600;letter-spacing:-2px;margin-bottom:8px}
+.logo span{color:var(--accent)}
+.hero p{font-size:14px;color:var(--text2);max-width:480px;margin:0 auto;line-height:1.6}
+
+/* Steps indicator */
+.steps{display:flex;justify-content:center;gap:32px;margin-bottom:32px}
+.step-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text3);transition:color .2s}
+.step-item.active{color:var(--accent)}
+.step-item.done{color:var(--green)}
+.step-dot{width:28px;height:28px;border-radius:0;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;transition:all .2s}
+.step-item.active .step-dot{background:var(--accent);color:var(--text-on-dark);border-color:var(--accent)}
+.step-item.done .step-dot{background:var(--green);color:#fff;border-color:var(--green)}
+
+/* Card */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color .2s}
+.card:hover{border-color:#ccc}
+.card-label{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;margin-bottom:14px;font-family:var(--mono)}
+
+/* Input */
+.input-row{display:flex;gap:8px}
+.input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:12px 16px;outline:none;transition:border-color .2s}
+.input:focus{border-color:var(--accent);border-width:2px;padding:11px 15px}
+.input::placeholder{color:var(--text3)}
+
+/* Buttons */
+.btn{background:var(--accent);color:var(--text-on-dark);border:none;border-radius:var(--radius);padding:12px 16px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--font);white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:#B91C1C;transform:translateY(-1px)}
+.btn:active{background:#991B1B;transform:translateY(0)}
+.btn:disabled{background:var(--bg4);color:var(--text3);cursor:not-allowed;transform:none}
+.btn-sm{padding:8px 16px;font-size:12px}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.btn-green{background:var(--green)}
+.btn-green:hover{background:#16A34A}
+
+/* Quick tests */
+.quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.qt{font-size:12px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text2);transition:all .15s;font-family:var(--mono)}
+.qt:hover{border-color:var(--accent);color:var(--text)}
+
+/* Provider badge */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 12px;border-radius:var(--radius);font-weight:600;margin-top:10px;font-family:var(--mono)}
+.badge-spotify{background:rgba(34,197,94,.08);color:var(--green)}
+.badge-deezer{background:rgba(220,38,38,.08);color:var(--accent)}
+.badge-ytmusic{background:rgba(220,38,38,.08);color:var(--red)}
+
+/* Status */
+.status{font-size:13px;color:var(--text2);margin-top:12px;display:flex;align-items:center;gap:8px;font-family:var(--font)}
+.spinner{width:16px;height:16px;border:2px solid var(--bg4);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{color:var(--red);font-size:13px;margin-top:10px}
+
+/* Track table */
+.tracks-wrap{max-height:420px;overflow-y:auto;margin-top:8px}
+.tracks-wrap::-webkit-scrollbar{width:5px}
+.tracks-wrap::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{position:sticky;top:0;background:var(--bg2);z-index:1}
+th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono)}
+td{padding:8px 10px;border-bottom:1px solid var(--border);transition:background .15s}
+tr:hover td{background:var(--accent-dim)}
+tr:hover .col-artist{color:var(--accent)}
+.col-num{width:36px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px}
+.col-artist{color:var(--text2);font-family:var(--mono);transition:color .15s}
+.col-dur{width:50px;text-align:right;color:var(--text3);font-family:var(--mono);font-size:11px}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0}
+
+/* Stats */
+.stats-row{display:flex;gap:20px;padding:12px 0;font-size:12px;color:var(--text2);border-top:1px solid var(--border);font-family:var(--mono)}
+.stat-val{font-weight:700;color:var(--text);font-family:var(--mono)}
+
+/* Send section */
+.send-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.send-info{font-size:13px;color:var(--text2)}
+.send-info strong{color:var(--text);font-weight:600}
+
+/* Install section */
+.install-steps{display:grid;gap:12px;margin-top:12px}
+.install-step{display:flex;gap:12px;align-items:flex-start;padding:14px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);transition:border-color .15s}
+.install-step:hover{border-color:#ccc}
+.install-num{width:24px;height:24px;border-radius:0;background:var(--accent);color:var(--text-on-dark);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font)}
+.install-text{font-size:13px;color:var(--text2);line-height:1.5;font-family:var(--font)}
+.install-text strong{color:var(--text)}
+code{background:var(--bg3);padding:2px 8px;border-radius:var(--radius);font-family:var(--mono);font-size:12px;color:var(--accent);border:1px solid var(--border)}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;animation:slideUp .3s ease;font-family:var(--font)}
+@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* Responsive */
+.hidden{display:none!important}
+.fade-in{animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* Footer */
+.footer{text-align:center;padding:32px;font-size:12px;color:var(--text3);font-family:var(--mono)}
+.footer a{color:var(--text3)}
+.footer a:hover{color:var(--accent)}
+
+/* OS tabs */
+.os-tabs{display:flex;gap:4px;margin-bottom:12px}
+.os-tab{padding:6px 14px;font-size:12px;border-radius:var(--radius);cursor:pointer;color:var(--text3);background:transparent;border:1px solid var(--border);transition:all .15s;font-family:var(--font)}
+.os-tab:hover{border-color:var(--accent);color:var(--accent)}
+.os-tab.active{color:var(--accent);border-color:var(--accent);background:var(--accent-dim);font-weight:500}
+.os-content{display:none}
+.os-content.active{display:block}
+
+/* Responsive small screens */
+@media(max-width:640px){
+  .app{padding:32px 20px 60px}
+  .logo{font-size:36px}
+  .send-row{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="logo">Seek<span>Wish</span></div>
+    <p>Importe des playlists Spotify, Deezer et YouTube Music dans Nicotine+ avec filtre qualité audiophile.</p>
+  </div>
+
+  <!-- Steps -->
+  <div class="steps">
+    <div class="step-item active" id="s1"><div class="step-dot">1</div>Extraire</div>
+    <div class="step-item" id="s2"><div class="step-dot">2</div>Vérifier</div>
+    <div class="step-item" id="s3"><div class="step-dot">3</div>Envoyer</div>
+  </div>
+
+  <!-- Extract -->
+  <div class="card" id="extractCard">
+    <div class="card-label">Importer une playlist</div>
+    <div class="input-row">
+      <input type="text" class="input" id="urlInput" placeholder="Coller une URL Deezer, Spotify ou YouTube Music..." spellcheck="false"/>
+      <button class="btn" id="btnExtract" onclick="doExtract()">Extraire</button>
+    </div>
+    <div id="badge" class="hidden"></div>
+    <div class="quick">
+      <span style="font-size:11px;color:var(--text3);line-height:28px">Tester :</span>
+      <div class="qt" onclick="qtest('https://www.deezer.com/playlist/908622995')">Deezer</div>
+      <div class="qt" onclick="qtest('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M')">Spotify</div>
+      <div class="qt" onclick="qtest('https://music.youtube.com/playlist?list=RDCLAK5uy_kmPRjHDECIo1OFBqklhFTbTa7x-eZ0zOo')">YT Music</div>
+    </div>
+    <div id="statusLine" class="status hidden"></div>
+    <div id="errorLine" class="error-msg hidden"></div>
+  </div>
+
+  <!-- Tracks -->
+  <div class="card hidden" id="trackCard">
+    <div class="card-label" id="trackLabel">Tracks</div>
+    <div class="tracks-wrap">
+      <table>
+        <thead><tr><th class="col-num">#</th><th>Titre</th><th>Artiste</th><th class="col-dur">Durée</th></tr></thead>
+        <tbody id="trackBody"></tbody>
+      </table>
+    </div>
+    <div class="stats-row" id="statsRow"></div>
+  </div>
+
+  <!-- Send -->
+  <div class="card hidden" id="sendCard">
+    <div class="card-label">Envoyer à Nicotine+</div>
+    <div class="send-row">
+      <div class="send-info">
+        <strong id="sendCount">0</strong> tracks prêtes.<br/>
+        <span id="sendHint" style="font-size:12px;color:var(--text3);font-family:var(--mono)">Le filtre qualité audiophile s'appliquera automatiquement.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-green" id="btnSend" onclick="sendToNicotine()">Envoyer à N+</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadJSON()">Télécharger JSON</button>
+      </div>
+    </div>
+    <div id="sendStatus" class="status hidden"></div>
+  </div>
+
+  <!-- Install -->
+  <div class="card" id="installCard" style="margin-top:32px">
+    <div class="card-label">Installer le plugin Nicotine+</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      Le plugin filtre automatiquement les résultats par qualité audio (FLAC, WAV, ALAC...) et lance les téléchargements.
+    </p>
+
+    <div class="os-tabs">
+      <div class="os-tab active" onclick="switchOS('auto')">Auto</div>
+      <div class="os-tab" onclick="switchOS('mac')">macOS</div>
+      <div class="os-tab" onclick="switchOS('linux')">Linux</div>
+      <div class="os-tab" onclick="switchOS('win')">Windows</div>
+    </div>
+
+    <div class="os-content active" id="os-auto">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-num">1</div>
+          <div class="install-text">
+            <strong>Télécharge le plugin</strong><br/>
+            <button class="btn btn-sm" style="margin-top:8px" onclick="downloadPlugin()">Télécharger audiophile_wishlist.zip</button>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">2</div>
+          <div class="install-text">
+            <strong>Extrais le zip</strong> dans le dossier plugins de Nicotine+ :<br/>
+            <span id="pluginPath" style="margin-top:4px;display:block"></span>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">3</div>
+          <div class="install-text">
+            <strong>Active le plugin</strong> dans Nicotine+ :<br/>
+            Settings → Plugins → cocher <code>Audiophile Wishlist</code> → redémarrer N+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="os-content" id="os-mac">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-num">1</div>
+          <div class="install-text">
+            Ouvre un terminal et lance :<br/>
+            <code style="display:block;margin-top:6px;padding:8px 12px;white-space:pre-wrap;word-break:break-all">curl -L https://seekwish.vercel.app/api/plugin -o /tmp/aw.zip && unzip -o /tmp/aw.zip -d ~/.local/share/nicotine/plugins/</code>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">2</div>
+          <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="os-content" id="os-linux">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-num">1</div>
+          <div class="install-text">
+            <code style="display:block;padding:8px 12px;white-space:pre-wrap">curl -L https://seekwish.vercel.app/api/plugin -o /tmp/aw.zip && unzip -o /tmp/aw.zip -d ~/.local/share/nicotine/plugins/</code>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">2</div>
+          <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="os-content" id="os-win">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-num">1</div>
+          <div class="install-text">
+            <strong>Télécharge</strong> le plugin :<br/>
+            <button class="btn btn-sm" style="margin-top:8px" onclick="downloadPlugin()">Télécharger audiophile_wishlist.zip</button>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">2</div>
+          <div class="install-text">
+            Extrais le zip dans :<br/>
+            <code style="display:block;margin-top:4px;padding:8px 12px;white-space:pre-wrap">%APPDATA%\nicotine\plugins\</code>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-num">3</div>
+          <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    SeekWish — open source · <a href="https://github.com/nicotine-plus/nicotine-plus" target="_blank">Nicotine+</a>
+  </div>
+</div>
+
+<div class="hidden toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+const LOCAL = 'http://localhost:8484';
+let tracks = [];
+let localAvailable = false;
+
+// ── Detect local companion ──
+async function checkLocal() {
+  try {
+    const r = await fetch(LOCAL + '/api/install-status', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    if (r.ok) { localAvailable = true; }
+  } catch {}
+}
+
+// ── OS detection for install path ──
+function detectOS() {
+  const ua = navigator.userAgent;
+  if (ua.includes('Mac')) return 'mac';
+  if (ua.includes('Win')) return 'win';
+  return 'linux';
+}
+function setPluginPath() {
+  const os = detectOS();
+  const paths = {
+    mac: '~/.local/share/nicotine/plugins/',
+    linux: '~/.local/share/nicotine/plugins/',
+    win: '%APPDATA%\\nicotine\\plugins\\'
+  };
+  document.getElementById('pluginPath').innerHTML = '<code style="padding:8px 12px;display:block;margin-top:4px">' + paths[os] + '</code>';
+}
+
+function switchOS(os) {
+  document.querySelectorAll('.os-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.os-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('os-' + os).classList.add('active');
+}
+
+// ── Badge ──
+function showBadge(url) {
+  const el = document.getElementById('badge');
+  const map = [
+    [/deezer\.com\/.*playlist\/\d+/, 'Deezer', 'badge-deezer'],
+    [/open\.spotify\.com\/playlist\//, 'Spotify', 'badge-spotify'],
+    [/youtube\.com\/playlist\?list=/, 'YouTube Music', 'badge-ytmusic'],
+  ];
+  for (const [rx, label, cls] of map) {
+    if (rx.test(url)) { el.className = 'badge fade-in ' + cls; el.textContent = label; return; }
+  }
+  el.classList.add('hidden');
+}
+
+// ── Steps ──
+function setStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('s' + i);
+    el.className = 'step-item' + (i < n ? ' done' : i === n ? ' active' : '');
+  }
+}
+
+// ── Extract ──
+function qtest(url) { document.getElementById('urlInput').value = url; doExtract(); }
+
+async function doExtract() {
+  const url = document.getElementById('urlInput').value.trim();
+  const btn = document.getElementById('btnExtract');
+  const status = document.getElementById('statusLine');
+  const err = document.getElementById('errorLine');
+
+  err.classList.add('hidden');
+  document.getElementById('trackCard').classList.add('hidden');
+  document.getElementById('sendCard').classList.add('hidden');
+
+  if (!url) { err.textContent = 'Colle une URL pour commencer.'; err.classList.remove('hidden'); return; }
+
+  showBadge(url);
+  btn.disabled = true; btn.textContent = 'Extraction...';
+  status.innerHTML = '<div class="spinner"></div> Extraction des tracks...';
+  status.classList.remove('hidden');
+
+  const t0 = performance.now();
+
+  try {
+    const r = await fetch(API + '/api/extract', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({url})
+    });
+    const data = await r.json();
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
+
+    if (data.error) {
+      err.textContent = data.error; err.classList.remove('hidden');
+    } else if (data.tracks && data.tracks.length > 0) {
+      tracks = data.tracks;
+      renderTracks(tracks, elapsed);
+      setStep(2);
+    } else {
+      err.textContent = 'Aucune track trouvée. La playlist est peut-être privée.';
+      err.classList.remove('hidden');
+    }
+  } catch (e) {
+    err.textContent = 'Erreur: ' + e.message; err.classList.remove('hidden');
+  }
+
+  btn.disabled = false; btn.textContent = 'Extraire';
+  status.classList.add('hidden');
+}
+
+// ── Render tracks ──
+function renderTracks(list, elapsed) {
+  let html = '';
+  list.forEach((t, i) => {
+    html += '<tr><td class="col-num">' + (i+1) + '</td>'
+      + '<td class="truncate">' + esc(t.title) + '</td>'
+      + '<td class="truncate col-artist">' + esc(t.artist) + '</td>'
+      + '<td class="col-dur">' + fmtDur(t.duration) + '</td></tr>';
+  });
+  document.getElementById('trackBody').innerHTML = html;
+  document.getElementById('trackLabel').textContent = list.length + ' tracks';
+
+  const total = list.reduce((s, t) => s + (t.duration || 0), 0);
+  document.getElementById('statsRow').innerHTML =
+    '<div>Tracks: <span class="stat-val">' + list.length + '</span></div>' +
+    '<div>Durée: <span class="stat-val">' + fmtDur(total) + '</span></div>' +
+    '<div>Extraction: <span class="stat-val">' + elapsed + 's</span></div>';
+
+  document.getElementById('trackCard').classList.remove('hidden');
+  document.getElementById('trackCard').classList.add('fade-in');
+
+  document.getElementById('sendCount').textContent = list.length + ' tracks';
+  document.getElementById('sendCard').classList.remove('hidden');
+  document.getElementById('sendCard').classList.add('fade-in');
+
+  document.getElementById('trackCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── Send to N+ ──
+async function sendToNicotine() {
+  const btn = document.getElementById('btnSend');
+  const status = document.getElementById('sendStatus');
+  btn.disabled = true; btn.textContent = 'Envoi...';
+
+  // Try local companion first
+  if (localAvailable) {
+    try {
+      const r = await fetch(LOCAL + '/api/send-to-nicotine', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({tracks})
+      });
+      const data = await r.json();
+      if (data.success) {
+        setStep(3);
+        toast('Envoyé à Nicotine+ !');
+        status.innerHTML = '<span style="color:var(--green)">Envoyé ! Ouvre Nicotine+ → Wishlist pour voir les tracks.</span>';
+        status.classList.remove('hidden');
+        btn.textContent = 'Envoyé !';
+        setTimeout(() => { btn.disabled = false; btn.textContent = 'Envoyer à N+'; }, 3000);
+        return;
+      }
+    } catch {}
+  }
+
+  // Fallback: download JSON
+  status.innerHTML = 'Companion local non détecté. Télécharge le fichier JSON et place-le dans le dossier du plugin.';
+  status.classList.remove('hidden');
+  downloadJSON();
+  btn.disabled = false; btn.textContent = 'Envoyer à N+';
+}
+
+function downloadJSON() {
+  const payload = {timestamp: Date.now() / 1000, tracks};
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pending_import.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('pending_import.json téléchargé');
+}
+
+function downloadPlugin() {
+  window.location.href = API + '/api/plugin';
+}
+
+// ── Utils ──
+function fmtDur(s) {
+  if (!s) return '-';
+  if (s >= 3600) return Math.floor(s/3600) + 'h' + String(Math.floor((s%3600)/60)).padStart(2,'0');
+  return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 2500);
+}
+
+// ── Init ──
+document.getElementById('urlInput').addEventListener('input', function() { showBadge(this.value); });
+document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') doExtract(); });
+setPluginPath();
+checkLocal();
+</script>
+</body>
+</html>
