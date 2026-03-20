@@ -808,11 +808,10 @@ function updatePluginStatus() {
   if (!el) return;
   if (localAvailable) {
     el.innerHTML = '<div class="plugin-ok"><div class="dot"></div><span>Plugin Nicotine+ détecté et connecté</span></div>';
-    document.getElementById('installCard').style.display = 'none';
   } else {
     el.innerHTML = '<div class="plugin-missing"><div class="dot"></div><span>Plugin non détecté — installe-le ci-dessous puis lance Nicotine+</span></div>';
-    document.getElementById('installCard').style.display = '';
   }
+  // Install card is always visible so the user can re-download or share
 }
 
 // ── OS detection for install path ──
