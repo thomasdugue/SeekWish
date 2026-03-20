@@ -29,6 +29,16 @@ import webbrowser
 # ─────────────────────────────────────────────────────────────────────────────
 
 PORT = 8484
+SEEKWISH_URL = "https://seekwish.vercel.app"
+SUPABASE_URL = "https://lyfdaagdqmkdcndstgkf.supabase.co"
+SUPABASE_ANON_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5ZmRhYWdkcW1rZGNuZHN0Z2tmIiwi"
+    "cm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc2NTEsImV4cCI6MjA4OTMxMzY1MX0."
+    "LriH69a5ucJCd8IkD325sXioD_G1qUFfxhn4BBHDfGc"
+)
+POLL_INTERVAL = 60  # seconds
+TOKEN_REFRESH_INTERVAL = 50 * 60  # 50 minutes
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -46,6 +56,257 @@ def _get_nicotine_plugins_dir():
 def _get_import_file_path():
     """Path to the shared JSON file the N+ plugin reads."""
     return os.path.join(_get_nicotine_plugins_dir(), "pending_import.json")
+
+
+def _get_plugin_source_dir():
+    """Get the plugin source directory (next to this script)."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "audiophile_wishlist")
+
+
+def _install_plugin():
+    """Install/update the plugin into the Nicotine+ plugins directory.
+
+    Returns (success: bool, message: str).
+    """
+
+    source_dir = _get_plugin_source_dir()
+    target_dir = _get_nicotine_plugins_dir()
+
+    if not os.path.isdir(source_dir):
+        return False, f"Plugin source not found at {source_dir}"
+
+    files_to_copy = ["__init__.py", "PLUGININFO"]
+
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+
+        updated = []
+        for filename in files_to_copy:
+            src = os.path.join(source_dir, filename)
+            dst = os.path.join(target_dir, filename)
+
+            if not os.path.exists(src):
+                continue
+
+            # Check if update needed
+            needs_update = True
+            if os.path.exists(dst):
+                with open(src, "rb") as f:
+                    src_content = f.read()
+                with open(dst, "rb") as f:
+                    dst_content = f.read()
+                needs_update = (src_content != dst_content)
+
+            if needs_update:
+                import shutil
+                shutil.copy2(src, dst)
+                updated.append(filename)
+
+        if updated:
+            return True, f"Plugin installed ({', '.join(updated)}) → {target_dir}"
+        return True, "Plugin already up to date"
+
+    except Exception as e:
+        return False, f"Installation failed: {e}"
+
+
+def _get_install_status():
+    """Check if the plugin is installed and up to date."""
+
+    source_dir = _get_plugin_source_dir()
+    target_dir = _get_nicotine_plugins_dir()
+    init_src = os.path.join(source_dir, "__init__.py")
+    init_dst = os.path.join(target_dir, "__init__.py")
+
+    if not os.path.exists(init_dst):
+        return {"installed": False, "up_to_date": False, "path": target_dir}
+
+    up_to_date = False
+    if os.path.exists(init_src):
+        with open(init_src, "rb") as f:
+            src = f.read()
+        with open(init_dst, "rb") as f:
+            dst = f.read()
+        up_to_date = (src == dst)
+
+    return {"installed": True, "up_to_date": up_to_date, "path": target_dir}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auth / Config persistence
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_config_path():
+    """Path to the companion config file."""
+    config_dir = os.path.expanduser("~/.config/seekwish")
+    os.makedirs(config_dir, exist_ok=True)
+    return os.path.join(config_dir, "config.json")
+
+
+def _load_config():
+    """Load config from disk. Returns dict."""
+    path = _get_config_path()
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {}
+
+
+def _save_config(config):
+    """Save config to disk with restricted permissions."""
+    path = _get_config_path()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+    os.chmod(path, 0o600)
+
+
+# Global auth state
+_auth = {
+    "access_token": None,
+    "refresh_token": None,
+    "email": None,
+    "expires_at": 0,
+}
+
+
+def _refresh_access_token():
+    """Exchange refresh token for a new access token via Supabase."""
+    if not _auth["refresh_token"]:
+        return False
+
+    url = f"{SUPABASE_URL}/auth/v1/token?grant_type=refresh_token"
+    payload = json.dumps({"refresh_token": _auth["refresh_token"]}).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+    }
+
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        _auth["access_token"] = data.get("access_token")
+        _auth["refresh_token"] = data.get("refresh_token", _auth["refresh_token"])
+        _auth["expires_at"] = time.time() + data.get("expires_in", 3600) - 60
+
+        user = data.get("user", {})
+        _auth["email"] = user.get("email", "")
+
+        # Persist refresh token
+        config = _load_config()
+        config["refresh_token"] = _auth["refresh_token"]
+        config["email"] = _auth["email"]
+        _save_config(config)
+
+        return True
+    except Exception as e:
+        print(f"  Token refresh failed: {e}")
+        return False
+
+
+def _ensure_valid_token():
+    """Ensure we have a valid access token, refreshing if needed."""
+    if _auth["access_token"] and time.time() < _auth["expires_at"]:
+        return True
+    return _refresh_access_token()
+
+
+def _init_auth_from_config():
+    """Load saved refresh token from config on startup."""
+    config = _load_config()
+    refresh_token = config.get("refresh_token")
+    if refresh_token:
+        _auth["refresh_token"] = refresh_token
+        _auth["email"] = config.get("email", "")
+        print("  Found saved auth token, refreshing...")
+        if _refresh_access_token():
+            print(f"  ✓ Authenticated as {_auth['email']}")
+        else:
+            print("  ✗ Token refresh failed — please re-authenticate")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Polling thread — fetch pending tracks and write to N+
+# ─────────────────────────────────────────────────────────────────────────────
+
+_poll_force = threading.Event()
+
+
+def _polling_loop():
+    """Background daemon: poll /api/pending, write tracks, ACK."""
+    while True:
+        _poll_force.wait(timeout=POLL_INTERVAL)
+        _poll_force.clear()
+
+        if not _auth["access_token"]:
+            continue
+
+        if not _ensure_valid_token():
+            continue
+
+        try:
+            # GET pending tracks
+            req = urllib.request.Request(
+                f"{SEEKWISH_URL}/api/pending",
+                headers={
+                    "Authorization": f"Bearer {_auth['access_token']}",
+                    "Content-Type": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+
+            pending_tracks = data.get("tracks", [])
+            if not pending_tracks:
+                continue
+
+            print(f"  → {len(pending_tracks)} pending tracks from server")
+
+            # Write to pending_import.json
+            import_path = _get_import_file_path()
+            plugin_dir = os.path.dirname(import_path)
+            os.makedirs(plugin_dir, exist_ok=True)
+
+            payload = {
+                "timestamp": time.time(),
+                "tracks": [
+                    {
+                        "artist": t.get("artist", ""),
+                        "title": t.get("title", ""),
+                        "album": t.get("album", ""),
+                        "duration": t.get("duration", 0),
+                    }
+                    for t in pending_tracks
+                ],
+            }
+            with open(import_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+
+            print(f"  ✓ Wrote {len(pending_tracks)} tracks to {import_path}")
+
+            # ACK
+            track_ids = [t["id"] for t in pending_tracks if "id" in t]
+            if track_ids:
+                ack_payload = json.dumps({"track_ids": track_ids}).encode("utf-8")
+                ack_req = urllib.request.Request(
+                    f"{SEEKWISH_URL}/api/pending",
+                    data=ack_payload,
+                    headers={
+                        "Authorization": f"Bearer {_auth['access_token']}",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(ack_req, timeout=15) as ack_resp:
+                    ack_data = json.loads(ack_resp.read().decode("utf-8"))
+                print(f"  ✓ ACK'd {ack_data.get('acknowledged', 0)} tracks")
+
+        except Exception as e:
+            print(f"  Poll error: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -117,73 +378,38 @@ def _extract_deezer(playlist_id):
 def _extract_spotify(playlist_id):
     """Fetch tracks from a public Spotify playlist.
 
-    Strategy: Get an anonymous access token from the embed page,
-    then call the official Spotify Web API with it.
+    Strategy: Parse __NEXT_DATA__ from the embed page which contains
+    the full track list without needing any API calls.
     """
 
-    # Step 1: Get anonymous access token from embed page
-    token = _spotify_get_anonymous_token(playlist_id)
-    if not token:
-        return []
-
-    # Step 2: Use token to call official Spotify API
-    tracks = []
-    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=100&fields=items(track(name,artists(name),album(name),duration_ms)),next"
-    headers = {"Authorization": f"Bearer {token}", "User-Agent": USER_AGENT}
-
-    while url and len(tracks) < 500:
-        raw = _fetch(url, headers=headers)
-        if raw is None:
-            break
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            break
-
-        if "error" in data:
-            break
-
-        for item in data.get("items", []):
-            track = item.get("track")
-            if not track:
-                continue
-            title = track.get("name", "")
-            artists = track.get("artists", [])
-            artist_names = ", ".join(a.get("name", "") for a in artists if a.get("name"))
-            album = track.get("album", {}).get("name", "")
-            duration = round(track.get("duration_ms", 0) / 1000)
-            if artist_names and title:
-                tracks.append({"artist": artist_names, "title": title, "duration": duration, "album": album})
-
-        url = data.get("next")
-
-    return tracks
-
-
-def _spotify_get_anonymous_token(playlist_id):
-    """Get an anonymous access token from Spotify's embed page."""
-
-    # Method 1: Fetch the embed page and extract accessToken from script
     embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
     html = _fetch(embed_url)
-    if html:
-        m = re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
-        if m:
-            return m.group(1)
+    if not html:
+        return []
 
-    # Method 2: Try the token endpoint directly
-    token_url = "https://open.spotify.com/get_access_token?reason=transport&productType=embed"
-    raw = _fetch(token_url, headers={"User-Agent": USER_AGENT})
-    if raw:
-        try:
-            data = json.loads(raw)
-            token = data.get("accessToken")
-            if token:
-                return token
-        except json.JSONDecodeError:
-            pass
+    # Extract __NEXT_DATA__ JSON from the embed page
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if not m:
+        return []
 
-    return None
+    try:
+        data = json.loads(m.group(1))
+    except json.JSONDecodeError:
+        return []
+
+    entity = data.get("props", {}).get("pageProps", {}).get("state", {}).get("data", {}).get("entity", {})
+    track_list = entity.get("trackList", [])
+
+    tracks = []
+    for item in track_list:
+        title = item.get("title", "")
+        # subtitle contains artist(s), separated by ",\xa0" for multi-artist
+        artist = item.get("subtitle", "").replace("\xa0", " ")
+        duration = round(item.get("duration", 0) / 1000)
+        if artist and title:
+            tracks.append({"artist": artist, "title": title, "duration": duration, "album": ""})
+
+    return tracks
 
 
 def _extract_ytmusic(playlist_id):
@@ -564,15 +790,87 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        """Serve the HTML page."""
+        """Serve HTML pages and auth callback."""
+        parsed = urllib.parse.urlparse(self.path)
+
+        if parsed.path == "/api/auth-callback":
+            # OAuth redirect from browser: receive refresh token
+            params = urllib.parse.parse_qs(parsed.query)
+            refresh_token = params.get("refresh_token", [None])[0]
+            if refresh_token:
+                _auth["refresh_token"] = refresh_token
+                if _refresh_access_token():
+                    import html as _html
+                    safe_email = _html.escape(_auth.get("email", ""))
+                    self._serve_html(
+                        "<h2>Authentification réussie</h2>"
+                        f"<p>Connecté en tant que <strong>{safe_email}</strong></p>"
+                        "<p>Tu peux fermer cet onglet.</p>"
+                    )
+                else:
+                    self._serve_html("<h2>Erreur</h2><p>Token invalide.</p>")
+            else:
+                self._serve_html("<h2>Erreur</h2><p>Pas de token reçu.</p>")
+            return
+
+        if parsed.path == "/api/auth-status":
+            self._json_response({
+                "authenticated": bool(_auth["access_token"]),
+                "email": _auth.get("email", ""),
+            })
+            return
+
+        if parsed.path == "/test":
+            # Serve the test providers page from disk
+            test_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_providers.html")
+            try:
+                with open(test_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                self.wfile.write(content.encode("utf-8"))
+            except FileNotFoundError:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"test_providers.html not found")
+            return
+
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(HTML_PAGE.encode("utf-8"))
 
+    def _serve_html(self, body_html):
+        """Serve a simple HTML response page."""
+        html = (
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<style>body{font-family:system-ui;text-align:center;padding:60px;background:#FAFAFA}</style>'
+            f'</head><body>{body_html}</body></html>'
+        )
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(html.encode("utf-8"))
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight."""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def do_POST(self):
         """Handle API requests."""
-        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self._json_response({"error": "Invalid request"}, 400)
+            return
+        if content_length > 1_048_576:  # 1 MB
+            self._json_response({"error": "Payload too large"}, 413)
+            return
         body = self.rfile.read(content_length)
 
         try:
@@ -585,6 +883,23 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             self._handle_extract(data)
         elif self.path == "/api/send-to-nicotine":
             self._handle_send(data)
+        elif self.path == "/api/install-plugin":
+            self._handle_install(data)
+        elif self.path == "/api/install-status":
+            self._json_response(_get_install_status())
+        elif self.path == "/api/logout":
+            _auth["access_token"] = None
+            _auth["refresh_token"] = None
+            _auth["email"] = None
+            _auth["expires_at"] = 0
+            config = _load_config()
+            config.pop("refresh_token", None)
+            config.pop("email", None)
+            _save_config(config)
+            self._json_response({"success": True})
+        elif self.path == "/api/sync-now":
+            _poll_force.set()
+            self._json_response({"success": True, "message": "Poll triggered"})
         else:
             self._json_response({"error": "Not found"}, 404)
 
@@ -613,6 +928,11 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             return
 
         self._json_response({"provider": provider, "tracks": tracks})
+
+    def _handle_install(self, _data):
+        """Install or update the plugin."""
+        success, message = _install_plugin()
+        self._json_response({"success": success, "message": message})
 
     def _handle_send(self, data):
         """Write tracks to a JSON file that the N+ plugin will read."""
@@ -656,17 +976,37 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 def main():
     print()
     print("  ╔═══════════════════════════════════════╗")
-    print("  ║   Audiophile Wishlist — Companion App  ║")
+    print("  ║        SeekWish — Companion App        ║")
     print("  ╚═══════════════════════════════════════╝")
     print()
+
+    # Auto-install/update plugin
+    success, msg = _install_plugin()
+    if success:
+        print(f"  ✓ {msg}")
+    else:
+        print(f"  ✗ {msg}")
+
+    # Init auth from saved config
+    _init_auth_from_config()
+
+    print()
     print(f"  → http://localhost:{PORT}")
-    print(f"  → Plugin dir: {_get_nicotine_plugins_dir()}")
+    print(f"  → http://localhost:{PORT}/test  (test providers)")
+    if _auth["access_token"]:
+        print(f"  → Polling enabled (every {POLL_INTERVAL}s)")
+    else:
+        print(f"  → Auth: open {SEEKWISH_URL} and login, then visit")
+        print(f"    {SEEKWISH_URL}/auth/companion to link this companion")
     print()
     print("  Ctrl+C to stop")
     print()
 
+    # Start polling daemon thread
+    threading.Thread(target=_polling_loop, daemon=True).start()
+
     socketserver.TCPServer.allow_reuse_address = True
-    server = socketserver.TCPServer(("", PORT), RequestHandler)
+    server = socketserver.TCPServer(("127.0.0.1", PORT), RequestHandler)
 
     # Open browser after a short delay
     def open_browser():

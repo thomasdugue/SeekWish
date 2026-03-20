@@ -6,74 +6,103 @@
 <title>SeekWish — Import playlists into Nicotine+</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://lyfdaagdqmkdcndstgkf.supabase.co http://localhost:8484; img-src 'self' https: data:; frame-ancestors 'none';">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg:#FAFAFA;--bg2:#FAFAFA;--bg3:#F5F5F5;--bg4:#E5E5E5;
-  --text:#000000;--text2:#5E5E5E;--text3:#999999;
-  --accent:#DC2626;--accent2:#DC2626;--accent-dim:rgba(220,38,38,.06);
-  --green:#22C55E;--red:#DC2626;--info:#3B82F6;
-  --border:#E5E5E5;--border2:#E5E5E5;
-  --radius:0px;
-  --font:"Sora",system-ui,-apple-system,sans-serif;
-  --mono:"IBM Plex Mono",monospace;
-  --text-on-dark:#FAFAFA;
+  --bg:#1A1B1E;--bg2:#25262B;--bg3:#2C2E33;--bg4:#373A40;
+  --text:#C1C2C5;--text2:#909296;--text3:#5C5F66;
+  --accent:#FAB005;--accent2:#FCC419;--accent-dim:rgba(250,176,5,.08);
+  --green:#51CF66;--red:#FF6B6B;--info:#339AF0;
+  --border:#373A40;--border2:#2C2E33;
+  --radius:8px;
+  --font:"Inter",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",monospace;
+  --text-on-dark:#1A1B1E;
+  --text-bright:#FFFFFF;
 }
-body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 
 /* Layout */
 .app{max-width:800px;margin:0 auto;padding:48px 64px 80px}
 
+/* Top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-bottom:8px;border-bottom:1px solid var(--border)}
+.topbar-logo{font-size:20px;font-weight:700;letter-spacing:-.5px;cursor:pointer;color:var(--text-bright)}
+.topbar-logo span{color:var(--accent)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.topbar-nav{display:flex;gap:4px}
+.topbar-nav a{font-size:13px;padding:7px 16px;color:var(--text2);border-radius:var(--radius);cursor:pointer;transition:all .15s;text-decoration:none;font-family:var(--font)}
+.topbar-nav a:hover{background:var(--bg3);color:var(--text-bright);text-decoration:none}
+.topbar-nav a.active{color:var(--accent);background:var(--accent-dim);font-weight:500}
+.topbar-user{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);font-family:var(--mono)}
+.topbar-avatar{width:28px;height:28px;border-radius:50%;border:1px solid var(--border)}
+.topbar-logout{font-size:11px;color:var(--text2);cursor:pointer;padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius);transition:all .15s;background:transparent}
+.topbar-logout:hover{background:var(--bg3);color:var(--text-bright)}
+
 /* Hero */
 .hero{text-align:center;padding:48px 0 40px}
-.logo{font-size:48px;font-weight:600;letter-spacing:-2px;margin-bottom:8px}
+.logo{font-size:48px;font-weight:700;letter-spacing:-2px;margin-bottom:8px;color:var(--text-bright)}
 .logo span{color:var(--accent)}
-.hero p{font-size:14px;color:var(--text2);max-width:480px;margin:0 auto;line-height:1.6}
+.hero p{font-size:15px;color:var(--text2);max-width:480px;margin:0 auto;line-height:1.7}
+
+/* Auth hero */
+.auth-hero{text-align:center;padding:80px 0 40px}
+.auth-hero h2{font-size:24px;font-weight:700;margin-bottom:12px;color:var(--text-bright)}
+.auth-hero p{font-size:14px;color:var(--text2);max-width:420px;margin:0 auto 32px;line-height:1.6}
+.btn-google{display:inline-flex;align-items:center;gap:10px;background:var(--bg2);color:var(--text-bright);border:1px solid var(--border);border-radius:var(--radius);padding:12px 24px;font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--font)}
+.btn-google:hover{background:var(--bg3);border-color:var(--text3);box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.btn-google svg{width:18px;height:18px}
+.auth-note{font-size:12px;color:var(--text3);margin-top:16px;font-family:var(--mono)}
 
 /* Steps indicator */
 .steps{display:flex;justify-content:center;gap:32px;margin-bottom:32px}
 .step-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text3);transition:color .2s}
 .step-item.active{color:var(--accent)}
 .step-item.done{color:var(--green)}
-.step-dot{width:28px;height:28px;border-radius:0;border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;transition:all .2s}
+.step-dot{width:28px;height:28px;border-radius:var(--radius);border:2px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;transition:all .2s}
 .step-item.active .step-dot{background:var(--accent);color:var(--text-on-dark);border-color:var(--accent)}
-.step-item.done .step-dot{background:var(--green);color:#fff;border-color:var(--green)}
+.step-item.done .step-dot{background:var(--green);color:var(--text-on-dark);border-color:var(--green)}
 
 /* Card */
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color .2s}
-.card:hover{border-color:#ccc}
-.card-label{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;margin-bottom:14px;font-family:var(--mono)}
+.card:hover{border-color:var(--bg4)}
+.card-label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--text3);font-weight:600;margin-bottom:14px;font-family:var(--mono)}
 
 /* Input */
 .input-row{display:flex;gap:8px}
-.input{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:12px 16px;outline:none;transition:border-color .2s}
+.input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-bright);font-family:var(--mono);font-size:13px;padding:12px 16px;outline:none;transition:border-color .2s}
 .input:focus{border-color:var(--accent);border-width:2px;padding:11px 15px}
 .input::placeholder{color:var(--text3)}
 
 /* Buttons */
-.btn{background:var(--accent);color:var(--text-on-dark);border:none;border-radius:var(--radius);padding:12px 16px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;font-family:var(--font);white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
-.btn:hover{background:#B91C1C;transform:translateY(-1px)}
-.btn:active{background:#991B1B;transform:translateY(0)}
-.btn:disabled{background:var(--bg4);color:var(--text3);cursor:not-allowed;transform:none}
+.btn{background:var(--accent);color:var(--text-on-dark);border:none;border-radius:var(--radius);padding:12px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:var(--font);white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--accent2);box-shadow:0 2px 8px rgba(250,176,5,.25)}
+.btn:active{background:#E9A100;transform:translateY(0)}
+.btn:disabled{background:var(--bg4);color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
 .btn-sm{padding:8px 16px;font-size:12px}
-.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text2)}
-.btn-outline:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
-.btn-green{background:var(--green)}
-.btn-green:hover{background:#16A34A}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);box-shadow:none}
+.btn-green{background:var(--green);color:var(--text-on-dark)}
+.btn-green:hover{background:#40C057;box-shadow:0 2px 8px rgba(81,207,102,.25)}
+.btn-danger{background:transparent;border:1px solid var(--border);color:var(--text3)}
+.btn-danger:hover{border-color:var(--red);color:var(--red);background:rgba(255,107,107,.08)}
 
 /* Quick tests */
 .quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .qt{font-size:12px;padding:5px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;color:var(--text2);transition:all .15s;font-family:var(--mono)}
-.qt:hover{border-color:var(--accent);color:var(--text)}
+.qt:hover{background:var(--bg4);color:var(--text-bright)}
 
 /* Provider badge */
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 12px;border-radius:var(--radius);font-weight:600;margin-top:10px;font-family:var(--mono)}
-.badge-spotify{background:rgba(34,197,94,.08);color:var(--green)}
-.badge-deezer{background:rgba(220,38,38,.08);color:var(--accent)}
-.badge-ytmusic{background:rgba(220,38,38,.08);color:var(--red)}
+.badge-spotify{background:rgba(81,207,102,.1);color:var(--green)}
+.badge-deezer{background:rgba(250,176,5,.1);color:var(--accent)}
+.badge-ytmusic{background:rgba(255,107,107,.1);color:var(--red)}
+.badge-sm{font-size:10px;padding:2px 8px;margin:0}
 
 /* Status */
 .status{font-size:13px;color:var(--text2);margin-top:12px;display:flex;align-items:center;gap:8px;font-family:var(--font)}
@@ -84,38 +113,80 @@ a:hover{text-decoration:underline}
 /* Track table */
 .tracks-wrap{max-height:420px;overflow-y:auto;margin-top:8px}
 .tracks-wrap::-webkit-scrollbar{width:5px}
-.tracks-wrap::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:0}
+.tracks-wrap::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:4px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead{position:sticky;top:0;background:var(--bg2);z-index:1}
-th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono)}
-td{padding:8px 10px;border-bottom:1px solid var(--border);transition:background .15s}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border);font-family:var(--mono)}
+td{padding:8px 10px;border-bottom:1px solid var(--border2);transition:background .15s,opacity .15s}
 tr:hover td{background:var(--accent-dim)}
 tr:hover .col-artist{color:var(--accent)}
+tr.deselected td{opacity:.35}
+tr.deselected:hover td{opacity:.5}
+.col-check{width:32px;text-align:center}
+.col-check input[type="checkbox"]{width:14px;height:14px;cursor:pointer;accent-color:var(--accent);border-radius:4px}
 .col-num{width:36px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px}
 .col-artist{color:var(--text2);font-family:var(--mono);transition:color .15s}
 .col-dur{width:50px;text-align:right;color:var(--text3);font-family:var(--mono);font-size:11px}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0}
+.select-bar{display:flex;align-items:center;gap:12px;padding:8px 0;font-size:12px;color:var(--text2);font-family:var(--mono)}
+.select-bar a{cursor:pointer;color:var(--accent);font-size:11px}
 
 /* Stats */
 .stats-row{display:flex;gap:20px;padding:12px 0;font-size:12px;color:var(--text2);border-top:1px solid var(--border);font-family:var(--mono)}
-.stat-val{font-weight:700;color:var(--text);font-family:var(--mono)}
+.stat-val{font-weight:700;color:var(--text-bright);font-family:var(--mono)}
 
 /* Send section */
 .send-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .send-info{font-size:13px;color:var(--text2)}
-.send-info strong{color:var(--text);font-weight:600}
+.send-info strong{color:var(--text-bright);font-weight:600}
 
 /* Install section */
 .install-steps{display:grid;gap:12px;margin-top:12px}
 .install-step{display:flex;gap:12px;align-items:flex-start;padding:14px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);transition:border-color .15s}
-.install-step:hover{border-color:#ccc}
-.install-num{width:24px;height:24px;border-radius:0;background:var(--accent);color:var(--text-on-dark);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font)}
+.install-step:hover{border-color:var(--bg4)}
+.install-num{width:24px;height:24px;border-radius:var(--radius);background:var(--accent);color:var(--text-on-dark);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font)}
 .install-text{font-size:13px;color:var(--text2);line-height:1.5;font-family:var(--font)}
-.install-text strong{color:var(--text)}
-code{background:var(--bg3);padding:2px 8px;border-radius:var(--radius);font-family:var(--mono);font-size:12px;color:var(--accent);border:1px solid var(--border)}
+.install-text strong{color:var(--text-bright)}
+code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:12px;color:var(--accent);border:1px solid var(--border)}
+
+/* Playlist cards */
+.playlist-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:10px;transition:border-color .2s}
+.playlist-card:hover{border-color:var(--bg4)}
+.playlist-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.playlist-info{flex:1;min-width:0}
+.playlist-name{font-size:14px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px;color:var(--text-bright)}
+.playlist-meta{font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;gap:12px;flex-wrap:wrap}
+.playlist-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.playlist-tracks{margin-top:12px;border-top:1px solid var(--border);padding-top:12px;display:none}
+.playlist-card.expanded .playlist-tracks{display:block}
+.playlist-expand{cursor:pointer;font-size:11px;color:var(--text3);font-family:var(--mono);padding:4px 10px;border:1px solid var(--border);border-radius:var(--radius);background:transparent;transition:all .15s}
+.playlist-expand:hover{background:var(--bg3);color:var(--text-bright)}
+
+/* Toggle switch */
+.toggle{position:relative;width:36px;height:20px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg4);border-radius:10px;transition:all .2s}
+.toggle-slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:all .2s}
+.toggle input:checked+.toggle-slider{background:var(--green)}
+.toggle input:checked+.toggle-slider:before{transform:translateX(16px)}
+
+/* New tracks badge */
+.badge-new{background:rgba(250,176,5,.1);color:var(--accent);font-size:10px;padding:2px 8px;border-radius:var(--radius);font-weight:600;font-family:var(--mono)}
+
+/* Provider cards */
+.provider-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.provider-card{padding:16px;border:1px solid var(--border);border-radius:var(--radius);text-align:center;transition:border-color .15s;cursor:default}
+.provider-card:hover{border-color:var(--bg4)}
+.provider-card-name{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text-bright)}
+.provider-card-desc{font-size:11px;color:var(--text3);font-family:var(--mono)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-state p{font-size:14px;margin-bottom:16px}
 
 /* Toast */
-.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;animation:slideUp .3s ease;font-family:var(--font)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:var(--text-on-dark);padding:12px 20px;border-radius:var(--radius);font-size:13px;font-weight:600;z-index:999;animation:slideUp .3s ease;font-family:var(--font);box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.toast.toast-error{background:var(--red);color:#fff}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
 /* Responsive */
@@ -124,180 +195,375 @@ code{background:var(--bg3);padding:2px 8px;border-radius:var(--radius);font-fami
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* Footer */
-.footer{text-align:center;padding:32px;font-size:12px;color:var(--text3);font-family:var(--mono)}
+.footer{text-align:center;padding:32px;font-size:12px;color:var(--text3);font-family:var(--mono);border-top:1px solid var(--border);margin-top:24px}
 .footer a{color:var(--text3)}
 .footer a:hover{color:var(--accent)}
 
 /* OS tabs */
 .os-tabs{display:flex;gap:4px;margin-bottom:12px}
-.os-tab{padding:6px 14px;font-size:12px;border-radius:var(--radius);cursor:pointer;color:var(--text3);background:transparent;border:1px solid var(--border);transition:all .15s;font-family:var(--font)}
-.os-tab:hover{border-color:var(--accent);color:var(--accent)}
-.os-tab.active{color:var(--accent);border-color:var(--accent);background:var(--accent-dim);font-weight:500}
+.os-tab{padding:6px 14px;font-size:12px;border-radius:var(--radius);cursor:pointer;color:var(--text2);background:transparent;border:1px solid transparent;transition:all .15s;font-family:var(--font)}
+.os-tab:hover{background:var(--bg3);color:var(--text-bright)}
+.os-tab.active{color:var(--accent);background:var(--accent-dim);font-weight:500}
 .os-content{display:none}
 .os-content.active{display:block}
+
+/* How it works steps */
+.how-steps{display:grid;gap:16px}
+.how-step{display:flex;gap:16px;align-items:flex-start}
+.how-num{width:36px;height:36px;border-radius:var(--radius);background:var(--accent);color:var(--text-on-dark);font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--font)}
+.how-content{display:flex;flex-direction:column;gap:4px}
+.how-content strong{font-size:14px;color:var(--text-bright)}
+.how-content span{font-size:13px;color:var(--text2);line-height:1.5}
+
+/* Plugin status indicators */
+.plugin-ok{display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius)}
+.plugin-ok .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.plugin-ok span{font-size:13px;color:var(--green);font-weight:500}
+.plugin-missing{display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(220,38,38,.04);border:1px solid rgba(220,38,38,.15);border-radius:var(--radius)}
+.plugin-missing .dot{width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.plugin-missing span{font-size:13px;color:var(--text2)}
 
 /* Responsive small screens */
 @media(max-width:640px){
   .app{padding:32px 20px 60px}
   .logo{font-size:36px}
   .send-row{flex-direction:column;align-items:flex-start}
+  .provider-cards{grid-template-columns:1fr}
+  .topbar{flex-wrap:wrap;gap:8px}
+  .topbar-nav{order:3;width:100%}
 }
 </style>
 </head>
 <body>
 <div class="app">
 
-  <!-- Hero -->
-  <div class="hero">
-    <div class="logo">Seek<span>Wish</span></div>
-    <p>Importe des playlists Spotify, Deezer et YouTube Music dans Nicotine+ avec filtre qualité audiophile.</p>
+  <!-- Top bar (logged in) -->
+  <div class="topbar hidden" id="topbar">
+    <div class="topbar-logo" onclick="navigate('extract')">Seek<span>Wish</span></div>
+    <div class="topbar-nav">
+      <a onclick="navigate('extract')" id="nav-extract">Extraire</a>
+      <a onclick="navigate('playlists')" id="nav-playlists">Mes playlists</a>
+      <a onclick="navigate('add')" id="nav-add">Ajouter</a>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-user">
+        <img class="topbar-avatar" id="userAvatar" src="" alt=""/>
+        <span id="userEmail"></span>
+      </div>
+      <button class="topbar-logout" onclick="doLogout()">Déconnexion</button>
+    </div>
   </div>
 
-  <!-- Steps -->
-  <div class="steps">
-    <div class="step-item active" id="s1"><div class="step-dot">1</div>Extraire</div>
-    <div class="step-item" id="s2"><div class="step-dot">2</div>Vérifier</div>
-    <div class="step-item" id="s3"><div class="step-dot">3</div>Envoyer</div>
+  <!-- ============ PAGE: AUTH ============ -->
+  <div id="page-auth" class="hidden">
+    <div class="hero">
+      <div class="logo">Seek<span>Wish</span></div>
+      <p>Importe des playlists Spotify, Deezer et YouTube Music dans Nicotine+ avec filtre qualité audiophile.</p>
+    </div>
+
+    <div class="auth-hero">
+      <h2>Synchronise tes playlists</h2>
+      <p>Connecte-toi pour synchroniser automatiquement tes playlists et télécharger les nouvelles tracks dès leur sortie.</p>
+      <button class="btn-google" onclick="doGoogleLogin()">
+        <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Se connecter avec Google
+      </button>
+      <div class="auth-note">L'extraction manuelle reste disponible sans compte</div>
+      <div style="margin-top:16px">
+        <a style="font-size:13px;cursor:pointer;color:var(--text2)" onclick="navigate('extract')">Continuer sans compte →</a>
+      </div>
+    </div>
   </div>
 
-  <!-- Extract -->
-  <div class="card" id="extractCard">
-    <div class="card-label">Importer une playlist</div>
-    <div class="input-row">
-      <input type="text" class="input" id="urlInput" placeholder="Coller une URL Deezer, Spotify ou YouTube Music..." spellcheck="false"/>
-      <button class="btn" id="btnExtract" onclick="doExtract()">Extraire</button>
+  <!-- ============ PAGE: LANDING (install + onboarding) ============ -->
+  <div id="page-landing" class="hidden">
+
+    <div class="hero">
+      <div class="logo">Seek<span>Wish</span></div>
+      <p>Importe des playlists Spotify, Deezer et YouTube Music dans Nicotine+ avec filtre qualité audiophile.</p>
     </div>
-    <div id="badge" class="hidden"></div>
-    <div class="quick">
-      <span style="font-size:11px;color:var(--text3);line-height:28px">Tester :</span>
-      <div class="qt" onclick="qtest('https://www.deezer.com/playlist/908622995')">Deezer</div>
-      <div class="qt" onclick="qtest('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M')">Spotify</div>
-      <div class="qt" onclick="qtest('https://music.youtube.com/playlist?list=RDCLAK5uy_kmPRjHDECIo1OFBqklhFTbTa7x-eZ0zOo')">YT Music</div>
+
+    <!-- How it works -->
+    <div class="card">
+      <div class="card-label">Comment ça marche</div>
+      <div class="how-steps">
+        <div class="how-step">
+          <div class="how-num">1</div>
+          <div class="how-content">
+            <strong>Installe le plugin</strong>
+            <span>Télécharge et installe le plugin dans Nicotine+. Il tourne en arrière-plan.</span>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">2</div>
+          <div class="how-content">
+            <strong>Colle une URL</strong>
+            <span>Copie un lien de playlist Deezer, Spotify ou YouTube Music sur ce site.</span>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">3</div>
+          <div class="how-content">
+            <strong>Envoie en un clic</strong>
+            <span>Les tracks sont envoyées directement à Nicotine+. Le filtre qualité audiophile s'applique automatiquement.</span>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="statusLine" class="status hidden"></div>
-    <div id="errorLine" class="error-msg hidden"></div>
+
+    <!-- Plugin status -->
+    <div class="card" id="pluginStatusCard">
+      <div class="card-label">Statut du plugin</div>
+      <div id="pluginStatusContent">
+        <div class="status"><div class="spinner"></div> Détection du plugin Nicotine+...</div>
+      </div>
+    </div>
+
+    <!-- Install -->
+    <div class="card" id="installCard">
+      <div class="card-label">Installer le plugin Nicotine+</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+        Le plugin filtre automatiquement les résultats par qualité audio (FLAC, WAV, ALAC...) et lance les téléchargements.
+      </p>
+
+      <div class="os-tabs">
+        <div class="os-tab active" onclick="switchOS('auto')">Auto</div>
+        <div class="os-tab" onclick="switchOS('mac')">macOS</div>
+        <div class="os-tab" onclick="switchOS('linux')">Linux</div>
+        <div class="os-tab" onclick="switchOS('win')">Windows</div>
+      </div>
+
+      <div class="os-content active" id="os-auto">
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="install-num">1</div>
+            <div class="install-text">
+              <strong>Télécharge le plugin</strong><br/>
+              <button class="btn btn-sm" style="margin-top:8px" onclick="downloadPlugin()">Télécharger audiophile_wishlist.zip</button>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">2</div>
+            <div class="install-text">
+              <strong>Extrais le zip</strong> dans le dossier plugins de Nicotine+ :<br/>
+              <span id="pluginPath" style="margin-top:4px;display:block"></span>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">3</div>
+            <div class="install-text">
+              <strong>Active le plugin</strong> dans Nicotine+ :<br/>
+              Settings → Plugins → cocher <code>Audiophile Wishlist</code> → redémarrer N+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="os-content" id="os-mac">
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="install-num">1</div>
+            <div class="install-text">
+              Ouvre un terminal et lance :<br/>
+              <code style="display:block;margin-top:6px;padding:8px 12px;white-space:pre-wrap;word-break:break-all">curl -L https://seekwish.vercel.app/api/plugin -o /tmp/aw.zip && unzip -o /tmp/aw.zip -d ~/.local/share/nicotine/plugins/</code>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">2</div>
+            <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="os-content" id="os-linux">
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="install-num">1</div>
+            <div class="install-text">
+              <code style="display:block;padding:8px 12px;white-space:pre-wrap">curl -L https://seekwish.vercel.app/api/plugin -o /tmp/aw.zip && unzip -o /tmp/aw.zip -d ~/.local/share/nicotine/plugins/</code>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">2</div>
+            <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="os-content" id="os-win">
+        <div class="install-steps">
+          <div class="install-step">
+            <div class="install-num">1</div>
+            <div class="install-text">
+              <strong>Télécharge</strong> le plugin :<br/>
+              <button class="btn btn-sm" style="margin-top:8px" onclick="downloadPlugin()">Télécharger audiophile_wishlist.zip</button>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">2</div>
+            <div class="install-text">
+              Extrais le zip dans :<br/>
+              <code style="display:block;margin-top:4px;padding:8px 12px;white-space:pre-wrap">%APPDATA%\nicotine\plugins\</code>
+            </div>
+          </div>
+          <div class="install-step">
+            <div class="install-num">3</div>
+            <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div style="text-align:center;margin-top:24px">
+      <button class="btn" onclick="navigate('extract')" style="padding:14px 32px;font-size:14px">Commencer →</button>
+      <div style="margin-top:12px">
+        <a style="font-size:12px;cursor:pointer;color:var(--text3)" onclick="doGoogleLogin()">ou se connecter pour synchroniser automatiquement</a>
+      </div>
+    </div>
   </div>
 
-  <!-- Tracks -->
-  <div class="card hidden" id="trackCard">
-    <div class="card-label" id="trackLabel">Tracks</div>
-    <div class="tracks-wrap">
-      <table>
-        <thead><tr><th class="col-num">#</th><th>Titre</th><th>Artiste</th><th class="col-dur">Durée</th></tr></thead>
-        <tbody id="trackBody"></tbody>
-      </table>
+  <!-- ============ PAGE: EXTRACT (main tool) ============ -->
+  <div id="page-extract" class="hidden">
+
+    <!-- Compact header when not logged in -->
+    <div id="extractHeader" class="hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--border)">
+        <div class="topbar-logo" onclick="navigate('landing')">Seek<span>Wish</span></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span id="pluginDot" style="width:8px;height:8px;border-radius:50%;background:var(--bg4);display:inline-block" title="Plugin non détecté"></span>
+          <span id="pluginLabel" style="font-size:11px;color:var(--text3);font-family:var(--mono)">Plugin non détecté</span>
+          <a style="font-size:12px;cursor:pointer;color:var(--text2);margin-left:8px" onclick="navigate('landing')">Installation</a>
+        </div>
+      </div>
     </div>
-    <div class="stats-row" id="statsRow"></div>
+
+    <!-- Steps -->
+    <div class="steps">
+      <div class="step-item active" id="s1"><div class="step-dot">1</div>Extraire</div>
+      <div class="step-item" id="s2"><div class="step-dot">2</div>Vérifier</div>
+      <div class="step-item" id="s3"><div class="step-dot">3</div>Envoyer</div>
+    </div>
+
+    <!-- Extract -->
+    <div class="card" id="extractCard">
+      <div class="card-label">Importer une playlist</div>
+      <div class="input-row">
+        <input type="text" class="input" id="urlInput" placeholder="Coller une URL Deezer, Spotify ou YouTube Music..." spellcheck="false"/>
+        <button class="btn" id="btnExtract" onclick="doExtract()">Extraire</button>
+      </div>
+      <div id="badge" class="hidden"></div>
+      <div class="quick">
+        <span style="font-size:11px;color:var(--text3);line-height:28px">Tester :</span>
+        <div class="qt" onclick="qtest('https://www.deezer.com/playlist/908622995')">Deezer</div>
+        <div class="qt" onclick="qtest('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M')">Spotify</div>
+        <div class="qt" onclick="qtest('https://music.youtube.com/playlist?list=RDCLAK5uy_kmPRjHDECIo1OFBqklhFTbTa7x-eZ0zOo')">YT Music</div>
+      </div>
+      <div id="statusLine" class="status hidden"></div>
+      <div id="errorLine" class="error-msg hidden"></div>
+    </div>
+
+    <!-- Tracks -->
+    <div class="card hidden" id="trackCard">
+      <div class="card-label" id="trackLabel">Tracks</div>
+      <div class="select-bar" id="selectBar">
+        <span id="selectedCount"></span>
+        <a onclick="selectAll()">Tout</a>
+        <a onclick="selectNone()">Aucun</a>
+        <a onclick="invertSelection()">Inverser</a>
+      </div>
+      <div class="tracks-wrap">
+        <table>
+          <thead><tr><th class="col-check"><input type="checkbox" id="checkAll" checked onchange="toggleAll(this.checked)"/></th><th class="col-num">#</th><th>Titre</th><th>Artiste</th><th class="col-dur">Durée</th></tr></thead>
+          <tbody id="trackBody"></tbody>
+        </table>
+      </div>
+      <div class="stats-row" id="statsRow"></div>
+    </div>
+
+    <!-- Send -->
+    <div class="card hidden" id="sendCard">
+      <div class="card-label">Envoyer à Nicotine+</div>
+      <div class="send-row">
+        <div class="send-info">
+          <strong id="sendCount">0</strong> tracks prêtes.<br/>
+          <span id="sendHint" style="font-size:12px;color:var(--text3);font-family:var(--mono)">Le filtre qualité audiophile s'appliquera automatiquement.</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-green" id="btnSend" onclick="sendToNicotine()">Envoyer à N+</button>
+          <button class="btn btn-outline btn-sm" onclick="downloadJSON()">Télécharger JSON</button>
+          <button class="btn btn-outline btn-sm hidden" id="btnSavePlaylist" onclick="saveAsPlaylist()">Sauvegarder playlist</button>
+        </div>
+      </div>
+      <div id="sendStatus" class="status hidden"></div>
+    </div>
   </div>
 
-  <!-- Send -->
-  <div class="card hidden" id="sendCard">
-    <div class="card-label">Envoyer à Nicotine+</div>
-    <div class="send-row">
-      <div class="send-info">
-        <strong id="sendCount">0</strong> tracks prêtes.<br/>
-        <span id="sendHint" style="font-size:12px;color:var(--text3);font-family:var(--mono)">Le filtre qualité audiophile s'appliquera automatiquement.</span>
+  <!-- ============ PAGE: ADD PLAYLIST ============ -->
+  <div id="page-add" class="hidden">
+    <div class="card">
+      <div class="card-label">Ajouter une playlist</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
+        Colle l'URL d'une playlist publique. Les nouvelles tracks seront automatiquement envoyées à Nicotine+.
+      </p>
+      <div class="input-row">
+        <input type="text" class="input" id="addUrlInput" placeholder="https://www.deezer.com/playlist/..." spellcheck="false"/>
+        <button class="btn" id="btnAddPlaylist" onclick="doAddPlaylist()">Ajouter</button>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-green" id="btnSend" onclick="sendToNicotine()">Envoyer à N+</button>
-        <button class="btn btn-outline btn-sm" onclick="downloadJSON()">Télécharger JSON</button>
+      <div id="addBadge" class="hidden"></div>
+      <div id="addStatus" class="status hidden"></div>
+      <div id="addError" class="error-msg hidden"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Providers supportés</div>
+      <div class="provider-cards">
+        <div class="provider-card">
+          <div class="provider-card-name" style="color:var(--accent)">Deezer</div>
+          <div class="provider-card-desc">API publique, stable</div>
+        </div>
+        <div class="provider-card">
+          <div class="provider-card-name" style="color:var(--green)">Spotify</div>
+          <div class="provider-card-desc">Token anonyme</div>
+        </div>
+        <div class="provider-card">
+          <div class="provider-card-name" style="color:var(--red)">YouTube Music</div>
+          <div class="provider-card-desc">Parsing HTML</div>
+        </div>
       </div>
     </div>
-    <div id="sendStatus" class="status hidden"></div>
+
+    <!-- Preview after adding -->
+    <div class="card hidden" id="addPreviewCard">
+      <div class="card-label" id="addPreviewLabel">Aperçu</div>
+      <div class="tracks-wrap">
+        <table>
+          <thead><tr><th class="col-num">#</th><th>Titre</th><th>Artiste</th><th class="col-dur">Durée</th></tr></thead>
+          <tbody id="addPreviewBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
-  <!-- Install -->
-  <div class="card" id="installCard" style="margin-top:32px">
-    <div class="card-label">Installer le plugin Nicotine+</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
-      Le plugin filtre automatiquement les résultats par qualité audio (FLAC, WAV, ALAC...) et lance les téléchargements.
-    </p>
-
-    <div class="os-tabs">
-      <div class="os-tab active" onclick="switchOS('auto')">Auto</div>
-      <div class="os-tab" onclick="switchOS('mac')">macOS</div>
-      <div class="os-tab" onclick="switchOS('linux')">Linux</div>
-      <div class="os-tab" onclick="switchOS('win')">Windows</div>
-    </div>
-
-    <div class="os-content active" id="os-auto">
-      <div class="install-steps">
-        <div class="install-step">
-          <div class="install-num">1</div>
-          <div class="install-text">
-            <strong>Télécharge le plugin</strong><br/>
-            <button class="btn btn-sm" style="margin-top:8px" onclick="downloadPlugin()">Télécharger audiophile_wishlist.zip</button>
-          </div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">2</div>
-          <div class="install-text">
-            <strong>Extrais le zip</strong> dans le dossier plugins de Nicotine+ :<br/>
-            <span id="pluginPath" style="margin-top:4px;display:block"></span>
-          </div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">3</div>
-          <div class="install-text">
-            <strong>Active le plugin</strong> dans Nicotine+ :<br/>
-            Settings → Plugins → cocher <code>Audiophile Wishlist</code> → redémarrer N+
-          </div>
-        </div>
+  <!-- ============ PAGE: PLAYLISTS MANAGEMENT ============ -->
+  <div id="page-playlists" class="hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <h2 style="font-size:20px;font-weight:700;color:var(--text-bright)">Mes playlists</h2>
+        <p style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:4px" id="playlistsSummary"></p>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="loadPlaylists()">Rafraîchir</button>
+        <button class="btn btn-sm" onclick="navigate('add')">Ajouter une playlist</button>
       </div>
     </div>
 
-    <div class="os-content" id="os-mac">
-      <div class="install-steps">
-        <div class="install-step">
-          <div class="install-num">1</div>
-          <div class="install-text">
-            Ouvre un terminal et lance :<br/>
-            <code style="display:block;margin-top:6px;padding:8px 12px;white-space:pre-wrap;word-break:break-all">curl -L https://seekwish.vercel.app/api/plugin -o /tmp/aw.zip && unzip -o /tmp/aw.zip -d ~/.local/share/nicotine/plugins/</code>
-          </div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">2</div>
-          <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
-        </div>
-      </div>
-    </div>
+    <div id="playlistsList"></div>
+    <div id="playlistsLoading" class="status hidden"><div class="spinner"></div> Chargement...</div>
 
-    <div class="os-content" id="os-linux">
-      <div class="install-steps">
-        <div class="install-step">
-          <div class="install-num">1</div>
-          <div class="install-text">
-            <code style="display:block;padding:8px 12px;white-space:pre-wrap">curl -L https://seekwish.vercel.app/api/plugin -o /tmp/aw.zip && unzip -o /tmp/aw.zip -d ~/.local/share/nicotine/plugins/</code>
-          </div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">2</div>
-          <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="os-content" id="os-win">
-      <div class="install-steps">
-        <div class="install-step">
-          <div class="install-num">1</div>
-          <div class="install-text">
-            <strong>Télécharge</strong> le plugin :<br/>
-            <button class="btn btn-sm" style="margin-top:8px" onclick="downloadPlugin()">Télécharger audiophile_wishlist.zip</button>
-          </div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">2</div>
-          <div class="install-text">
-            Extrais le zip dans :<br/>
-            <code style="display:block;margin-top:4px;padding:8px 12px;white-space:pre-wrap">%APPDATA%\nicotine\plugins\</code>
-          </div>
-        </div>
-        <div class="install-step">
-          <div class="install-num">3</div>
-          <div class="install-text">Redémarre Nicotine+ et active le plugin dans Settings → Plugins.</div>
-        </div>
-      </div>
+    <div class="empty-state hidden" id="playlistsEmpty">
+      <p>Aucune playlist synchronisée.</p>
+      <button class="btn" onclick="navigate('add')">Ajouter ta première playlist</button>
     </div>
   </div>
 
@@ -309,17 +575,159 @@ code{background:var(--bg3);padding:2px 8px;border-radius:var(--radius);font-fami
 <div class="hidden toast" id="toast"></div>
 
 <script>
+const SUPABASE_URL = 'https://lyfdaagdqmkdcndstgkf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5ZmRhYWdkcW1rZGNuZHN0Z2tmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3Mzc2NTEsImV4cCI6MjA4OTMxMzY1MX0.LriH69a5ucJCd8IkD325sXioD_G1qUFfxhn4BBHDfGc';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const API = window.location.origin;
 const LOCAL = 'http://localhost:8484';
 let tracks = [];
 let localAvailable = false;
+let currentUser = null;
+let currentSession = null;
 
-// ── Detect local companion ──
+// ── Auth ──
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    setSession(session);
+  } else {
+    // Not logged in — show landing page by default
+    const hash = window.location.hash.slice(1);
+    if (hash === 'extract') {
+      navigate('extract');
+    } else {
+      navigate('landing');
+    }
+  }
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (session) {
+      setSession(session);
+    } else {
+      currentUser = null;
+      currentSession = null;
+      navigate('landing');
+    }
+  });
+}
+
+function setSession(session) {
+  currentSession = session;
+  currentUser = session.user;
+  const meta = currentUser.user_metadata || {};
+  document.getElementById('userEmail').textContent = meta.name || currentUser.email || '';
+  document.getElementById('userAvatar').src = meta.avatar_url || meta.picture || '';
+  document.getElementById('topbar').classList.remove('hidden');
+  document.getElementById('btnSavePlaylist').classList.remove('hidden');
+
+  // If on auth or landing page, go to extract
+  const hash = window.location.hash.slice(1);
+  if (!hash || hash === 'auth' || hash === 'landing') {
+    navigate('extract');
+  } else {
+    navigate(hash);
+  }
+}
+
+async function doGoogleLogin() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) toast('Erreur: ' + error.message, true);
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  currentSession = null;
+  document.getElementById('topbar').classList.add('hidden');
+  document.getElementById('btnSavePlaylist').classList.add('hidden');
+  showPage('auth');
+}
+
+function authHeaders() {
+  if (!currentSession) return {};
+  return { 'Authorization': 'Bearer ' + currentSession.access_token };
+}
+
+// ── Navigation ──
+function navigate(page) {
+  const validPages = ['auth', 'landing', 'extract', 'add', 'playlists'];
+  if (!validPages.includes(page)) return;
+  validPages.forEach(p => {
+    const el = document.getElementById('page-' + p);
+    if (el) el.classList.add('hidden');
+  });
+  document.getElementById('page-' + page).classList.remove('hidden');
+  document.getElementById('page-' + page).classList.add('fade-in');
+
+  // Update nav active
+  document.querySelectorAll('.topbar-nav a').forEach(a => a.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
+
+  // Show/hide topbar vs compact header on extract page
+  if (page === 'extract') {
+    document.getElementById('extractHeader').classList.toggle('hidden', !!currentUser);
+  }
+
+  // Load playlists when navigating to that page
+  if (page === 'playlists' && currentUser) loadPlaylists();
+
+  // Update plugin status on landing page
+  if (page === 'landing') updatePluginStatus();
+
+  window.location.hash = page;
+}
+
+function showPage(page) {
+  navigate(page);
+}
+
+// ── Detect local plugin ──
 async function checkLocal() {
   try {
-    const r = await fetch(LOCAL + '/api/install-status', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-    if (r.ok) { localAvailable = true; }
-  } catch {}
+    const r = await fetch(LOCAL + '/api/status', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    if (r.ok) {
+      localAvailable = true;
+      updatePluginIndicator(true);
+    }
+  } catch {
+    updatePluginIndicator(false);
+  }
+}
+
+function updatePluginIndicator(detected) {
+  // Update extract page indicator
+  const dot = document.getElementById('pluginDot');
+  const label = document.getElementById('pluginLabel');
+  if (dot && label) {
+    if (detected) {
+      dot.style.background = 'var(--green)';
+      dot.title = 'Plugin connecté';
+      label.textContent = 'Plugin connecté';
+      label.style.color = 'var(--green)';
+    } else {
+      dot.style.background = 'var(--bg4)';
+      dot.title = 'Plugin non détecté';
+      label.textContent = 'Plugin non détecté';
+      label.style.color = 'var(--text3)';
+    }
+  }
+}
+
+function updatePluginStatus() {
+  const el = document.getElementById('pluginStatusContent');
+  if (!el) return;
+  if (localAvailable) {
+    el.innerHTML = '<div class="plugin-ok"><div class="dot"></div><span>Plugin Nicotine+ détecté et connecté</span></div>';
+    document.getElementById('installCard').style.display = 'none';
+  } else {
+    el.innerHTML = '<div class="plugin-missing"><div class="dot"></div><span>Plugin non détecté — installe-le ci-dessous puis lance Nicotine+</span></div>';
+    document.getElementById('installCard').style.display = '';
+  }
 }
 
 // ── OS detection for install path ──
@@ -347,8 +755,8 @@ function switchOS(os) {
 }
 
 // ── Badge ──
-function showBadge(url) {
-  const el = document.getElementById('badge');
+function showBadge(url, targetId) {
+  const el = document.getElementById(targetId || 'badge');
   const map = [
     [/deezer\.com\/.*playlist\/\d+/, 'Deezer', 'badge-deezer'],
     [/open\.spotify\.com\/playlist\//, 'Spotify', 'badge-spotify'],
@@ -417,17 +825,66 @@ async function doExtract() {
   status.classList.add('hidden');
 }
 
+// ── Track selection state ──
+let selected = new Set(); // indices of selected tracks
+
+function getSelectedTracks() {
+  return tracks.filter((_, i) => selected.has(i));
+}
+
+function updateSelectionUI() {
+  const count = selected.size;
+  const total = tracks.length;
+  document.getElementById('selectedCount').textContent = count + '/' + total + ' sélectionnées';
+  document.getElementById('sendCount').textContent = count + ' tracks';
+  document.getElementById('checkAll').checked = count === total;
+  document.getElementById('checkAll').indeterminate = count > 0 && count < total;
+
+  document.querySelectorAll('#trackBody tr').forEach((tr, i) => {
+    tr.classList.toggle('deselected', !selected.has(i));
+  });
+
+  // Disable send if none selected
+  document.getElementById('btnSend').disabled = count === 0;
+}
+
+function toggleTrack(i, checked) {
+  if (checked) selected.add(i); else selected.delete(i);
+  updateSelectionUI();
+}
+
+function toggleAll(checked) {
+  if (checked) { for (let i = 0; i < tracks.length; i++) selected.add(i); }
+  else { selected.clear(); }
+  document.querySelectorAll('#trackBody input[type="checkbox"]').forEach((cb, i) => { cb.checked = checked; });
+  updateSelectionUI();
+}
+
+function selectAll() { toggleAll(true); }
+function selectNone() { toggleAll(false); }
+function invertSelection() {
+  for (let i = 0; i < tracks.length; i++) {
+    if (selected.has(i)) selected.delete(i); else selected.add(i);
+  }
+  document.querySelectorAll('#trackBody input[type="checkbox"]').forEach((cb, i) => { cb.checked = selected.has(i); });
+  updateSelectionUI();
+}
+
 // ── Render tracks ──
 function renderTracks(list, elapsed) {
+  selected = new Set(list.map((_, i) => i)); // select all by default
+
   let html = '';
   list.forEach((t, i) => {
-    html += '<tr><td class="col-num">' + (i+1) + '</td>'
+    html += '<tr><td class="col-check"><input type="checkbox" checked onchange="toggleTrack(' + i + ', this.checked)"/></td>'
+      + '<td class="col-num">' + (i+1) + '</td>'
       + '<td class="truncate">' + esc(t.title) + '</td>'
       + '<td class="truncate col-artist">' + esc(t.artist) + '</td>'
       + '<td class="col-dur">' + fmtDur(t.duration) + '</td></tr>';
   });
   document.getElementById('trackBody').innerHTML = html;
   document.getElementById('trackLabel').textContent = list.length + ' tracks';
+  document.getElementById('checkAll').checked = true;
 
   const total = list.reduce((s, t) => s + (t.duration || 0), 0);
   document.getElementById('statsRow').innerHTML =
@@ -438,32 +895,34 @@ function renderTracks(list, elapsed) {
   document.getElementById('trackCard').classList.remove('hidden');
   document.getElementById('trackCard').classList.add('fade-in');
 
-  document.getElementById('sendCount').textContent = list.length + ' tracks';
   document.getElementById('sendCard').classList.remove('hidden');
   document.getElementById('sendCard').classList.add('fade-in');
 
+  updateSelectionUI();
   document.getElementById('trackCard').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 // ── Send to N+ ──
 async function sendToNicotine() {
+  const sel = getSelectedTracks();
+  if (!sel.length) { toast('Aucune track sélectionnée', true); return; }
+
   const btn = document.getElementById('btnSend');
   const status = document.getElementById('sendStatus');
   btn.disabled = true; btn.textContent = 'Envoi...';
 
-  // Try local companion first
   if (localAvailable) {
     try {
-      const r = await fetch(LOCAL + '/api/send-to-nicotine', {
+      const r = await fetch(LOCAL + '/api/send', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({tracks})
+        body: JSON.stringify({tracks: sel})
       });
       const data = await r.json();
       if (data.success) {
         setStep(3);
-        toast('Envoyé à Nicotine+ !');
-        status.innerHTML = '<span style="color:var(--green)">Envoyé ! Ouvre Nicotine+ → Wishlist pour voir les tracks.</span>';
+        toast(data.added + ' tracks envoyées à Nicotine+ !' + (data.skipped ? ' (' + data.skipped + ' déjà présentes)' : ''));
+        status.innerHTML = '<span style="color:var(--green)">Envoyé ! ' + data.added + ' tracks ajoutées à la wishlist.</span>';
         status.classList.remove('hidden');
         btn.textContent = 'Envoyé !';
         setTimeout(() => { btn.disabled = false; btn.textContent = 'Envoyer à N+'; }, 3000);
@@ -472,26 +931,207 @@ async function sendToNicotine() {
     } catch {}
   }
 
-  // Fallback: download JSON
-  status.innerHTML = 'Companion local non détecté. Télécharge le fichier JSON et place-le dans le dossier du plugin.';
+  status.innerHTML = 'Plugin Nicotine+ non détecté. Assure-toi que Nicotine+ est lancé avec le plugin activé, ou télécharge le JSON.';
   status.classList.remove('hidden');
-  downloadJSON();
-  btn.disabled = false; btn.textContent = 'Envoyer à N+';
+  btn.disabled = false; btn.textContent = 'Réessayer';
+}
+
+// ── Save as synced playlist ──
+async function saveAsPlaylist() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url || !currentSession) return;
+
+  try {
+    const r = await fetch(API + '/api/playlists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ url })
+    });
+    const data = await r.json();
+    if (data.error) {
+      toast(data.error, true);
+    } else {
+      toast('Playlist sauvegardée ! ' + (data.track_count || 0) + ' tracks.');
+    }
+  } catch (e) {
+    toast('Erreur: ' + e.message, true);
+  }
 }
 
 function downloadJSON() {
-  const payload = {timestamp: Date.now() / 1000, tracks};
+  const sel = getSelectedTracks();
+  if (!sel.length) { toast('Aucune track sélectionnée', true); return; }
+  const payload = {timestamp: Date.now() / 1000, tracks: sel};
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'pending_import.json';
   a.click();
   URL.revokeObjectURL(a.href);
-  toast('pending_import.json téléchargé');
+  toast(sel.length + ' tracks exportées');
 }
 
 function downloadPlugin() {
   window.location.href = API + '/api/plugin';
+}
+
+// ── Add Playlist page ──
+async function doAddPlaylist() {
+  const url = document.getElementById('addUrlInput').value.trim();
+  const btn = document.getElementById('btnAddPlaylist');
+  const status = document.getElementById('addStatus');
+  const err = document.getElementById('addError');
+
+  err.classList.add('hidden');
+  document.getElementById('addPreviewCard').classList.add('hidden');
+
+  if (!url) { err.textContent = 'Colle une URL pour commencer.'; err.classList.remove('hidden'); return; }
+  if (!currentSession) { err.textContent = 'Connecte-toi pour ajouter une playlist.'; err.classList.remove('hidden'); return; }
+
+  showBadge(url, 'addBadge');
+  btn.disabled = true; btn.textContent = 'Ajout...';
+  status.innerHTML = '<div class="spinner"></div> Extraction et sauvegarde...';
+  status.classList.remove('hidden');
+
+  try {
+    const r = await fetch(API + '/api/playlists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ url })
+    });
+    const data = await r.json();
+
+    if (data.error) {
+      err.textContent = data.error; err.classList.remove('hidden');
+    } else {
+      toast(data.message || 'Playlist ajoutée !');
+
+      // Show preview if we got tracks from the extract
+      if (data.playlist) {
+        // Fetch tracks for preview via extract endpoint
+        try {
+          const r2 = await fetch(API + '/api/extract', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url})
+          });
+          const d2 = await r2.json();
+          if (d2.tracks && d2.tracks.length) {
+            let html = '';
+            d2.tracks.forEach((t, i) => {
+              html += '<tr><td class="col-num">' + (i+1) + '</td>'
+                + '<td class="truncate">' + esc(t.title) + '</td>'
+                + '<td class="truncate col-artist">' + esc(t.artist) + '</td>'
+                + '<td class="col-dur">' + fmtDur(t.duration) + '</td></tr>';
+            });
+            document.getElementById('addPreviewBody').innerHTML = html;
+            document.getElementById('addPreviewLabel').textContent = d2.tracks.length + ' tracks importées';
+            document.getElementById('addPreviewCard').classList.remove('hidden');
+            document.getElementById('addPreviewCard').classList.add('fade-in');
+          }
+        } catch {}
+      }
+
+      document.getElementById('addUrlInput').value = '';
+    }
+  } catch (e) {
+    err.textContent = 'Erreur: ' + e.message; err.classList.remove('hidden');
+  }
+
+  btn.disabled = false; btn.textContent = 'Ajouter';
+  status.classList.add('hidden');
+}
+
+// ── Playlists management ──
+async function loadPlaylists() {
+  if (!currentSession) return;
+
+  const list = document.getElementById('playlistsList');
+  const loading = document.getElementById('playlistsLoading');
+  const empty = document.getElementById('playlistsEmpty');
+
+  list.innerHTML = '';
+  loading.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  try {
+    const r = await fetch(API + '/api/playlists', {
+      headers: authHeaders()
+    });
+    const data = await r.json();
+    const playlists = data.playlists || [];
+
+    if (playlists.length === 0) {
+      empty.classList.remove('hidden');
+      document.getElementById('playlistsSummary').textContent = '';
+    } else {
+      const totalTracks = playlists.reduce((s, p) => s + (p.track_count || 0), 0);
+      document.getElementById('playlistsSummary').textContent =
+        playlists.length + ' playlist' + (playlists.length > 1 ? 's' : '') + ' · ' + totalTracks + ' tracks';
+
+      playlists.forEach(p => {
+        list.innerHTML += renderPlaylistCard(p);
+      });
+    }
+  } catch (e) {
+    list.innerHTML = '<div class="error-msg">Erreur: ' + esc(e.message) + '</div>';
+  }
+
+  loading.classList.add('hidden');
+}
+
+function renderPlaylistCard(p) {
+  const badgeClass = p.provider === 'spotify' ? 'badge-spotify' : p.provider === 'deezer' ? 'badge-deezer' : 'badge-ytmusic';
+  const synced = p.last_synced ? new Date(p.last_synced).toLocaleDateString('fr-FR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : 'jamais';
+  const safeId = /^[0-9a-f-]{36}$/.test(p.id) ? p.id : '';
+  if (!safeId) return '';
+
+  return '<div class="playlist-card" id="pl-' + safeId + '">'
+    + '<div class="playlist-header">'
+    + '<div class="playlist-info">'
+    + '<div class="playlist-name">'
+    + esc(p.name || 'Playlist sans nom')
+    + ' <span class="badge badge-sm ' + badgeClass + '">' + esc(p.provider) + '</span>'
+    + '</div>'
+    + '<div class="playlist-meta">'
+    + '<span>' + (p.track_count || 0) + ' tracks</span>'
+    + '<span>Sync: ' + synced + '</span>'
+    + '</div>'
+    + '</div>'
+    + '<div class="playlist-actions">'
+    + '<button class="btn-danger btn-sm" onclick="deletePlaylist(\'' + safeId + '\')">Supprimer</button>'
+    + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+async function togglePlaylist(id, enabled) {
+  // Toggle is visual-only for now; a PATCH endpoint would be needed
+  // For now we just show feedback
+  toast(enabled ? 'Playlist activée' : 'Playlist désactivée');
+}
+
+async function deletePlaylist(id) {
+  if (!confirm('Supprimer cette playlist ?')) return;
+  if (!currentSession) return;
+
+  try {
+    const r = await fetch(API + '/api/playlists', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ id })
+    });
+    const data = await r.json();
+    if (data.deleted) {
+      toast('Playlist supprimée');
+      const el = document.getElementById('pl-' + id);
+      if (el) el.remove();
+    } else {
+      toast(data.error || 'Erreur', true);
+    }
+  } catch (e) {
+    toast('Erreur: ' + e.message, true);
+  }
 }
 
 // ── Utils ──
@@ -501,17 +1141,31 @@ function fmtDur(s) {
   return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0');
 }
 function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-function toast(msg) {
+function toast(msg, isError) {
   const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.remove('hidden');
+  el.textContent = msg;
+  el.className = 'toast' + (isError ? ' toast-error' : '');
   setTimeout(() => el.classList.add('hidden'), 2500);
 }
 
 // ── Init ──
 document.getElementById('urlInput').addEventListener('input', function() { showBadge(this.value); });
 document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') doExtract(); });
+document.getElementById('addUrlInput').addEventListener('input', function() { showBadge(this.value, 'addBadge'); });
+document.getElementById('addUrlInput').addEventListener('keydown', e => { if (e.key === 'Enter') doAddPlaylist(); });
 setPluginPath();
 checkLocal();
+
+// Handle hash routing
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash.slice(1);
+  if (['landing', 'extract', 'add', 'playlists', 'auth'].includes(hash)) {
+    navigate(hash);
+  }
+});
+
+// Start auth flow
+initAuth();
 </script>
 </body>
 </html>

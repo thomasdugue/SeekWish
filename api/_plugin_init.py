@@ -13,7 +13,7 @@ import time
 import urllib.request
 import urllib.error
 import urllib.parse
-from http.server import HTTPServer, BaseHTTPRequestHandler
+
 from threading import Thread
 
 from pynicotine.pluginsystem import BasePlugin
@@ -422,146 +422,6 @@ def _score_result(filepath, file_size, file_attrs):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Embedded HTTP server (localhost:8484)
-# ─────────────────────────────────────────────────────────────────────────────
-
-_plugin_ref = None  # Set by Plugin.loaded_notification()
-
-ALLOWED_ORIGINS = (
-    "https://seekwish.vercel.app",
-    "http://localhost:3000",
-)
-
-
-class _RequestHandler(BaseHTTPRequestHandler):
-    """Handles requests from the SeekWish web UI."""
-
-    def log_message(self, fmt, *args):
-        # Silence default stderr logging — use plugin log instead
-        if _plugin_ref:
-            _plugin_ref.log("HTTP %s", (fmt % args,))
-
-    def _cors_headers(self):
-        origin = self.headers.get("Origin", "")
-        if origin in ALLOWED_ORIGINS:
-            self.send_header("Access-Control-Allow-Origin", origin)
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Vary", "Origin")
-
-    def _json_response(self, data, status=200):
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self._cors_headers()
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
-
-    def do_OPTIONS(self):
-        self.send_response(204)
-        self._cors_headers()
-        self.end_headers()
-
-    def do_POST(self):
-        path = self.path.split("?")[0]
-
-        if path == "/api/status":
-            self._handle_status()
-        elif path == "/api/send":
-            self._handle_send()
-        else:
-            self._json_response({"error": "Not found"}, 404)
-
-    def _handle_status(self):
-        """Health check — lets the web UI know the plugin is running."""
-        self._json_response({
-            "status": "ok",
-            "plugin": "audiophile_wishlist",
-            "wishes": len(_plugin_ref._managed_wishes) if _plugin_ref else 0,
-        })
-
-    def _handle_send(self):
-        """Receive tracks from the web UI and add them to the wishlist."""
-        try:
-            length = int(self.headers.get("Content-Length", 0))
-        except (ValueError, TypeError):
-            self._json_response({"error": "Invalid request"}, 400)
-            return
-
-        if length > 500_000:  # 500 KB max
-            self._json_response({"error": "Payload too large"}, 413)
-            return
-
-        body = self.rfile.read(length)
-        try:
-            data = json.loads(body)
-        except json.JSONDecodeError:
-            self._json_response({"error": "Invalid JSON"}, 400)
-            return
-
-        tracks = data.get("tracks", [])
-        if not tracks or not isinstance(tracks, list):
-            self._json_response({"error": "No tracks provided"}, 400)
-            return
-
-        if not _plugin_ref:
-            self._json_response({"error": "Plugin not ready"}, 503)
-            return
-
-        added = 0
-        skipped = 0
-
-        for track in tracks:
-            if not isinstance(track, dict):
-                continue
-            artist = str(track.get("artist", "")).strip()
-            title = str(track.get("title", "")).strip()
-            if not title:
-                continue
-
-            wish_term = f"{artist} {title}" if artist else title
-            wish_term = re.sub(r"[(\[\{].*?[)\]\}]", "", wish_term)
-            wish_term = re.sub(r"\s+", " ", wish_term).strip()
-            if not wish_term:
-                continue
-
-            try:
-                if _plugin_ref.core.search.is_wish(wish_term):
-                    skipped += 1
-                    continue
-            except Exception:
-                pass
-
-            try:
-                _plugin_ref.core.search.add_wish(wish_term)
-                _plugin_ref._managed_wishes.add(wish_term)
-                added += 1
-            except Exception:
-                pass
-
-        _plugin_ref._stats["playlists_imported"] += 1
-        _plugin_ref._stats["tracks_imported"] += added
-        _plugin_ref.log(
-            "Web import: %s wishes added, %s skipped.", (added, skipped))
-
-        self._json_response({
-            "success": True,
-            "added": added,
-            "skipped": skipped,
-        })
-
-
-def _start_http_server(port=8484):
-    """Start the embedded HTTP server on localhost only."""
-    try:
-        server = HTTPServer(("127.0.0.1", port), _RequestHandler)
-        server.serve_forever()
-    except OSError:
-        # Port already in use (e.g., another N+ instance)
-        if _plugin_ref:
-            _plugin_ref.log("Warning: port %s already in use, HTTP server not started.", (port,))
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Plugin class
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -662,7 +522,6 @@ class Plugin(BasePlugin):
             "tracks_imported": 0,
         }
         self._event_connected = False
-        self._http_server_thread = None
 
         # How long to collect results before picking the best (seconds)
         self._collect_window = 30
@@ -674,18 +533,9 @@ class Plugin(BasePlugin):
         return os.path.join(self.path, "pending_import.json")
 
     def loaded_notification(self):
-        global _plugin_ref
-        _plugin_ref = self
-
         self.log("Audiophile Wishlist loaded. Quality filter: %s, mode: %s.",
                  ("ON" if self.settings["enable_quality_filter"] else "OFF",
                   self.settings["download_mode"]))
-
-        # Start embedded HTTP server for web UI communication
-        if self._http_server_thread is None or not self._http_server_thread.is_alive():
-            self._http_server_thread = Thread(target=_start_http_server, daemon=True)
-            self._http_server_thread.start()
-            self.log("HTTP server started on http://127.0.0.1:8484")
 
         # Check for pending imports from companion app on load
         self._check_pending_import()

@@ -23,6 +23,13 @@ env/
 # pytest
 .pytest_cache/
 
+# Env / secrets
+.env
+.env.*
+.env.local
+.env.production
+
 # OS
 .DS_Store
 Thumbs.db
+.vercel
