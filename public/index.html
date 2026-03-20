@@ -246,7 +246,7 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
     <div class="topbar-nav">
       <a onclick="navigate('extract')" id="nav-extract">Extraire</a>
       <a onclick="navigate('playlists')" id="nav-playlists">Mes playlists</a>
-      <a onclick="navigate('add')" id="nav-add">Ajouter</a>
+      <a onclick="navigate('landing')" id="nav-landing">Installation</a>
     </div>
     <div class="topbar-right">
       <div class="topbar-user">
@@ -495,7 +495,6 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-green" id="btnSend" onclick="sendToNicotine()">Envoyer à N+</button>
           <button class="btn btn-outline btn-sm" onclick="downloadJSON()">Télécharger JSON</button>
-          <button class="btn btn-outline btn-sm hidden" id="btnSavePlaylist" onclick="saveAsPlaylist()">Sauvegarder playlist</button>
         </div>
       </div>
       <div id="sendStatus" class="status hidden"></div>
@@ -503,11 +502,23 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
   </div>
 
   <!-- ============ PAGE: ADD PLAYLIST ============ -->
-  <div id="page-add" class="hidden">
-    <div class="card">
+  <!-- ============ PAGE: PLAYLISTS (add + manage) ============ -->
+  <div id="page-playlists" class="hidden">
+
+    <!-- Plugin status -->
+    <div id="syncStatusCard" class="card" style="margin-bottom:20px;padding:16px 20px;display:flex;align-items:center;gap:12px">
+      <div id="syncStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--text3);flex-shrink:0"></div>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-bright)" id="syncStatusTitle">Plugin non détecté</div>
+        <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:2px" id="syncStatusDesc">Lance Nicotine+ avec le plugin activé.</div>
+      </div>
+    </div>
+
+    <!-- Add playlist form -->
+    <div class="card" style="margin-bottom:20px">
       <div class="card-label">Ajouter une playlist</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
-        Colle l'URL d'une playlist publique. Les nouvelles tracks seront automatiquement envoyées à Nicotine+.
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">
+        Colle l'URL d'une playlist publique. Les nouvelles tracks seront automatiquement importées dans Nicotine+.
       </p>
       <div class="input-row">
         <input type="text" class="input" id="addUrlInput" placeholder="https://www.deezer.com/playlist/..." spellcheck="false"/>
@@ -518,62 +529,13 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
       <div id="addError" class="error-msg hidden"></div>
     </div>
 
-    <div class="card">
-      <div class="card-label">Providers supportés</div>
-      <div class="provider-cards">
-        <div class="provider-card">
-          <div class="provider-card-name" style="color:var(--accent)">Deezer</div>
-          <div class="provider-card-desc">API publique, stable</div>
-        </div>
-        <div class="provider-card">
-          <div class="provider-card-name" style="color:var(--green)">Spotify</div>
-          <div class="provider-card-desc">Token anonyme</div>
-        </div>
-        <div class="provider-card">
-          <div class="provider-card-name" style="color:var(--red)">YouTube Music</div>
-          <div class="provider-card-desc">Parsing HTML</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Preview after adding -->
-    <div class="card hidden" id="addPreviewCard">
-      <div class="card-label" id="addPreviewLabel">Aperçu</div>
-      <div class="tracks-wrap">
-        <table>
-          <thead><tr><th class="col-num">#</th><th>Titre</th><th>Artiste</th><th class="col-dur">Durée</th></tr></thead>
-          <tbody id="addPreviewBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ PAGE: PLAYLISTS MANAGEMENT ============ -->
-  <div id="page-playlists" class="hidden">
-
-    <!-- Auto-sync status card -->
-    <div id="syncStatusCard" class="card" style="margin-bottom:20px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div id="syncStatusDot" style="width:10px;height:10px;border-radius:50%;background:var(--text3);flex-shrink:0"></div>
-        <div>
-          <div style="font-size:14px;font-weight:600;color:var(--text-bright)" id="syncStatusTitle">Plugin non connecté</div>
-          <div style="font-size:12px;color:var(--text2);font-family:var(--mono);margin-top:2px" id="syncStatusDesc">Connecte le plugin pour l'import automatique.</div>
-        </div>
-      </div>
-      <div id="syncStatusAction">
-        <button class="btn btn-sm" onclick="pairPlugin()">Connecter le plugin</button>
-      </div>
-    </div>
-
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <!-- Playlist list -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div>
-        <h2 style="font-size:20px;font-weight:700;color:var(--text-bright)">Mes playlists</h2>
-        <p style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:4px" id="playlistsSummary">Scan automatique quotidien — les nouvelles tracks sont importées dans Nicotine+.</p>
+        <h2 style="font-size:18px;font-weight:700;color:var(--text-bright)">Mes playlists</h2>
+        <p style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:4px" id="playlistsSummary"></p>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline btn-sm" onclick="loadPlaylists()">Rafraîchir</button>
-        <button class="btn btn-sm" onclick="navigate('add')">Ajouter une playlist</button>
-      </div>
+      <button class="btn btn-outline btn-sm" onclick="loadPlaylists()">Rafraîchir</button>
     </div>
 
     <div id="playlistsList"></div>
@@ -581,7 +543,18 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
 
     <div class="empty-state hidden" id="playlistsEmpty">
       <p>Aucune playlist synchronisée.</p>
-      <button class="btn" onclick="navigate('add')">Ajouter ta première playlist</button>
+      <p style="font-size:13px;color:var(--text3);margin-top:8px">Ajoute une playlist ci-dessus pour commencer.</p>
+    </div>
+
+    <!-- Preview after adding -->
+    <div class="card hidden" id="addPreviewCard" style="margin-top:20px">
+      <div class="card-label" id="addPreviewLabel">Aperçu</div>
+      <div class="tracks-wrap">
+        <table>
+          <thead><tr><th class="col-num">#</th><th>Titre</th><th>Artiste</th><th class="col-dur">Durée</th></tr></thead>
+          <tbody id="addPreviewBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -637,7 +610,7 @@ function setSession(session) {
   document.getElementById('userEmail').textContent = meta.name || currentUser.email || '';
   document.getElementById('userAvatar').src = meta.avatar_url || meta.picture || '';
   document.getElementById('topbar').classList.remove('hidden');
-  document.getElementById('btnSavePlaylist').classList.remove('hidden');
+
 
   // If on auth or landing page, go to extract
   const hash = window.location.hash.slice(1);
@@ -661,7 +634,7 @@ async function doLogout() {
   currentUser = null;
   currentSession = null;
   document.getElementById('topbar').classList.add('hidden');
-  document.getElementById('btnSavePlaylist').classList.add('hidden');
+
   showPage('auth');
 }
 
@@ -672,7 +645,7 @@ function authHeaders() {
 
 // ── Navigation ──
 function navigate(page) {
-  const validPages = ['auth', 'landing', 'extract', 'add', 'playlists'];
+  const validPages = ['auth', 'landing', 'extract', 'playlists'];
   if (!validPages.includes(page)) return;
   validPages.forEach(p => {
     const el = document.getElementById('page-' + p);
@@ -705,17 +678,11 @@ function showPage(page) {
 }
 
 // ── Detect local plugin ──
-let pluginPaired = false;
-let pluginEmail = '';
-
 async function checkLocal() {
   try {
     const r = await fetch(LOCAL + '/api/status', {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
     if (r.ok) {
       localAvailable = true;
-      const data = await r.json();
-      pluginPaired = data.paired || false;
-      pluginEmail = data.email || '';
       updatePluginIndicator(true);
     }
   } catch {
@@ -723,64 +690,20 @@ async function checkLocal() {
   }
 }
 
-async function pairPlugin() {
-  if (!localAvailable) {
-    toast('Plugin non détecté. Lance Nicotine+ avec le plugin activé.', true);
-    return;
-  }
-  if (!currentSession) {
-    toast('Connecte-toi d\'abord.', true);
-    return;
-  }
-
-  try {
-    const r = await fetch(LOCAL + '/api/pair', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        access_token: currentSession.access_token,
-        refresh_token: currentSession.refresh_token,
-        email: currentUser.email || '',
-        api_url: API,
-        supabase_url: SUPABASE_URL,
-        anon_key: SUPABASE_ANON_KEY,
-      })
-    });
-    if (r.ok) {
-      pluginPaired = true;
-      pluginEmail = currentUser.email || '';
-      toast('Plugin connecté ! L\'import automatique est activé.');
-      updateSyncStatus();
-    } else {
-      toast('Erreur de connexion au plugin.', true);
-    }
-  } catch {
-    toast('Plugin non détecté.', true);
-  }
-}
-
 function updateSyncStatus() {
   const dot = document.getElementById('syncStatusDot');
   const title = document.getElementById('syncStatusTitle');
   const desc = document.getElementById('syncStatusDesc');
-  const action = document.getElementById('syncStatusAction');
   if (!dot) return;
 
-  if (!localAvailable) {
+  if (localAvailable) {
+    dot.style.background = 'var(--green)';
+    title.textContent = 'Plugin Nicotine+ connecté';
+    desc.textContent = 'Les tracks ajoutées seront envoyées à Nicotine+. Scan automatique quotidien.';
+  } else {
     dot.style.background = 'var(--text3)';
     title.textContent = 'Plugin non détecté';
-    desc.textContent = 'Lance Nicotine+ avec le plugin activé.';
-    action.innerHTML = '<a onclick="navigate(\'landing\')" style="font-size:13px;color:var(--accent);cursor:pointer">Installation</a>';
-  } else if (!pluginPaired) {
-    dot.style.background = 'var(--accent)';
-    title.textContent = 'Plugin détecté — non connecté';
-    desc.textContent = 'Connecte le plugin pour activer l\'import automatique des nouvelles tracks.';
-    action.innerHTML = '<button class="btn btn-sm" onclick="pairPlugin()">Connecter</button>';
-  } else {
-    dot.style.background = 'var(--green)';
-    title.textContent = 'Import automatique activé';
-    desc.textContent = 'Les nouvelles tracks seront importées automatiquement dans Nicotine+.';
-    action.innerHTML = '<span style="font-size:12px;color:var(--text2);font-family:var(--mono)">' + esc(pluginEmail) + '</span>';
+    desc.innerHTML = 'Lance Nicotine+ avec le plugin activé. <a onclick="navigate(\'landing\')" style="color:var(--accent);cursor:pointer">Voir l\'installation</a>';
   }
 }
 
@@ -1020,27 +943,6 @@ async function sendToNicotine() {
   btn.disabled = false; btn.textContent = 'Réessayer';
 }
 
-// ── Save as synced playlist ──
-async function saveAsPlaylist() {
-  const url = document.getElementById('urlInput').value.trim();
-  if (!url || !currentSession) return;
-
-  try {
-    const r = await fetch(API + '/api/playlists', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ url })
-    });
-    const data = await r.json();
-    if (data.error) {
-      toast(data.error, true);
-    } else {
-      toast('Playlist sauvegardée ! ' + (data.track_count || 0) + ' tracks.');
-    }
-  } catch (e) {
-    toast('Erreur: ' + e.message, true);
-  }
-}
 
 function downloadJSON() {
   const sel = getSelectedTracks();
@@ -1117,6 +1019,8 @@ async function doAddPlaylist() {
       }
 
       document.getElementById('addUrlInput').value = '';
+      // Refresh the playlist list below
+      loadPlaylists();
     }
   } catch (e) {
     err.textContent = 'Erreur: ' + e.message; err.classList.remove('hidden');
