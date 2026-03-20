@@ -42,8 +42,8 @@ class handler(BaseHTTPRequestHandler):
 
             try:
                 tracks, name = extractor(pid)
-            except Exception as e:
-                errors.append({"playlist_id": p["id"], "error": str(e)})
+            except Exception:
+                errors.append({"playlist_id": p["id"], "error": "extraction failed"})
                 continue
 
             if not tracks:
