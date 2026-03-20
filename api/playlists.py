@@ -71,7 +71,11 @@ class handler(BaseHTTPRequestHandler):
 
         sb = get_service_client()
         result = sb.table("playlists").select("*, playlist_tracks(count)").eq("user_id", user_id).execute()
-        self._json({"playlists": result.data or []})
+        playlists = result.data or []
+        for p in playlists:
+            pt = p.pop("playlist_tracks", [])
+            p["track_count"] = pt[0]["count"] if pt else 0
+        self._json({"playlists": playlists})
 
     def do_POST(self):
         """Add a new playlist: detect provider, extract tracks, upsert into DB."""

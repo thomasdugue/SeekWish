@@ -14,6 +14,7 @@ import urllib.request
 import urllib.error
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from pathlib import Path
 from threading import Thread
 
 from pynicotine.pluginsystem import BasePlugin
@@ -432,6 +433,25 @@ ALLOWED_ORIGINS = (
     "http://localhost:3000",
 )
 
+CONFIG_DIR = Path.home() / ".config" / "seekwish"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+SEEKWISH_API = "https://seekwish.vercel.app"
+POLL_INTERVAL = 1800  # 30 minutes
+
+
+def _load_config():
+    """Load persistent config (auth tokens, etc.)."""
+    try:
+        return json.loads(CONFIG_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _save_config(config):
+    """Save persistent config."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(config, indent=2))
+
 
 class _RequestHandler(BaseHTTPRequestHandler):
     """Handles requests from the SeekWish web UI."""
@@ -468,16 +488,91 @@ class _RequestHandler(BaseHTTPRequestHandler):
             self._handle_status()
         elif path == "/api/send":
             self._handle_send()
+        elif path == "/api/pair":
+            self._handle_pair()
+        elif path == "/api/auth-status":
+            self._handle_auth_status()
+        elif path == "/api/unpair":
+            self._handle_unpair()
         else:
             self._json_response({"error": "Not found"}, 404)
 
     def _handle_status(self):
         """Health check — lets the web UI know the plugin is running."""
+        config = _load_config()
         self._json_response({
             "status": "ok",
             "plugin": "audiophile_wishlist",
             "wishes": len(_plugin_ref._managed_wishes) if _plugin_ref else 0,
+            "paired": bool(config.get("access_token")),
+            "email": config.get("email", ""),
         })
+
+    def _handle_pair(self):
+        """Receive auth tokens from the web UI to enable auto-sync polling."""
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self._json_response({"error": "Invalid request"}, 400)
+            return
+
+        if length > 10_000:
+            self._json_response({"error": "Payload too large"}, 413)
+            return
+
+        body = self.rfile.read(length)
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            self._json_response({"error": "Invalid JSON"}, 400)
+            return
+
+        access_token = data.get("access_token", "")
+        refresh_token = data.get("refresh_token", "")
+        email = data.get("email", "")
+
+        if not access_token or not refresh_token:
+            self._json_response({"error": "Missing tokens"}, 400)
+            return
+
+        config = _load_config()
+        config["access_token"] = access_token
+        config["refresh_token"] = refresh_token
+        config["email"] = email
+        config["api_url"] = data.get("api_url", SEEKWISH_API)
+        config["supabase_url"] = data.get("supabase_url", "")
+        config["anon_key"] = data.get("anon_key", "")
+        _save_config(config)
+
+        if _plugin_ref:
+            _plugin_ref.log("SeekWish: paired with account %s", (email,))
+            # Start polling thread if not already running
+            if _plugin_ref._poll_thread is None or not _plugin_ref._poll_thread.is_alive():
+                _plugin_ref._poll_thread = Thread(target=_poll_pending_tracks, daemon=True)
+                _plugin_ref._poll_thread.start()
+
+        self._json_response({"success": True, "email": email})
+
+    def _handle_auth_status(self):
+        """Return current pairing status."""
+        config = _load_config()
+        self._json_response({
+            "paired": bool(config.get("access_token")),
+            "email": config.get("email", ""),
+        })
+
+    def _handle_unpair(self):
+        """Remove stored tokens."""
+        config = _load_config()
+        config.pop("access_token", None)
+        config.pop("refresh_token", None)
+        config.pop("email", None)
+        _save_config(config)
+
+        if _plugin_ref:
+            _plugin_ref.log("SeekWish: unpaired.")
+
+        self._json_response({"success": True})
 
     def _handle_send(self):
         """Receive tracks from the web UI and add them to the wishlist."""
@@ -559,6 +654,140 @@ def _start_http_server(port=8484):
         # Port already in use (e.g., another N+ instance)
         if _plugin_ref:
             _plugin_ref.log("Warning: port %s already in use, HTTP server not started.", (port,))
+
+
+def _refresh_access_token(config):
+    """Use the refresh token to get a new access token from Supabase."""
+    supabase_url = config.get("supabase_url", "")
+    refresh_token = config.get("refresh_token", "")
+    if not supabase_url or not refresh_token:
+        return False
+
+    url = f"{supabase_url}/auth/v1/token?grant_type=refresh_token"
+    payload = json.dumps({"refresh_token": refresh_token}).encode()
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": config.get("anon_key", ""),
+    }
+
+    try:
+        req = urllib.request.Request(url, data=payload, headers=headers)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+
+        config["access_token"] = data["access_token"]
+        config["refresh_token"] = data["refresh_token"]
+        _save_config(config)
+
+        if _plugin_ref:
+            _plugin_ref.log("SeekWish: token refreshed.")
+        return True
+    except Exception:
+        if _plugin_ref:
+            _plugin_ref.log("SeekWish: token refresh failed.")
+        return False
+
+
+def _poll_pending_tracks():
+    """Background thread: poll /api/pending, add tracks to wishlist, ACK."""
+    while True:
+        try:
+            config = _load_config()
+            access_token = config.get("access_token")
+            api_url = config.get("api_url", SEEKWISH_API)
+
+            if not access_token or not _plugin_ref:
+                time.sleep(60)
+                continue
+
+            # GET /api/pending
+            req = urllib.request.Request(
+                f"{api_url}/api/pending",
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    data = json.loads(resp.read().decode())
+            except urllib.error.HTTPError as e:
+                if e.code == 401:
+                    # Token expired — try refresh
+                    if _refresh_access_token(config):
+                        continue  # Retry immediately with new token
+                    else:
+                        _plugin_ref.log("SeekWish: auth expired. Re-pair from the website.")
+                time.sleep(POLL_INTERVAL)
+                continue
+
+            tracks = data.get("tracks", [])
+            if not tracks:
+                time.sleep(POLL_INTERVAL)
+                continue
+
+            # Add tracks to wishlist
+            added_ids = []
+            added_count = 0
+            skipped_count = 0
+
+            for t in tracks:
+                track_id = t.get("id", "")
+                artist = str(t.get("artist", "")).strip()
+                title = str(t.get("title", "")).strip()
+                if not title:
+                    continue
+
+                wish_term = f"{artist} {title}" if artist else title
+                wish_term = re.sub(r"[(\[\{].*?[)\]\}]", "", wish_term)
+                wish_term = re.sub(r"\s+", " ", wish_term).strip()
+                if not wish_term:
+                    continue
+
+                added_ids.append(track_id)
+
+                try:
+                    if _plugin_ref.core.search.is_wish(wish_term):
+                        skipped_count += 1
+                        continue
+                except Exception:
+                    pass
+
+                try:
+                    _plugin_ref.core.search.add_wish(wish_term)
+                    _plugin_ref._managed_wishes.add(wish_term)
+                    added_count += 1
+                except Exception:
+                    pass
+
+            # ACK tracks so they won't be sent again
+            if added_ids:
+                ack_payload = json.dumps({"track_ids": added_ids}).encode()
+                ack_req = urllib.request.Request(
+                    f"{api_url}/api/pending",
+                    data=ack_payload,
+                    headers={
+                        "Authorization": f"Bearer {config.get('access_token', '')}",
+                        "Content-Type": "application/json",
+                    },
+                    method="POST",
+                )
+                try:
+                    urllib.request.urlopen(ack_req, timeout=15)
+                except Exception:
+                    pass
+
+            if added_count > 0:
+                _plugin_ref.log(
+                    "SeekWish auto-sync: %s new wishes added, %s skipped.",
+                    (added_count, skipped_count),
+                )
+                _plugin_ref._stats["tracks_imported"] += added_count
+
+        except Exception:
+            pass
+
+        time.sleep(POLL_INTERVAL)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -663,6 +892,7 @@ class Plugin(BasePlugin):
         }
         self._event_connected = False
         self._http_server_thread = None
+        self._poll_thread = None
 
         # How long to collect results before picking the best (seconds)
         self._collect_window = 30
@@ -686,6 +916,14 @@ class Plugin(BasePlugin):
             self._http_server_thread = Thread(target=_start_http_server, daemon=True)
             self._http_server_thread.start()
             self.log("HTTP server started on http://127.0.0.1:8484")
+
+        # Start auto-sync polling thread
+        if self._poll_thread is None or not self._poll_thread.is_alive():
+            config = _load_config()
+            if config.get("access_token"):
+                self._poll_thread = Thread(target=_poll_pending_tracks, daemon=True)
+                self._poll_thread.start()
+                self.log("SeekWish auto-sync enabled for %s", (config.get("email", "?"),))
 
         # Check for pending imports from companion app on load
         self._check_pending_import()
