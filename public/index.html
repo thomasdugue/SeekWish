@@ -639,8 +639,53 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
     </div>
   </div>
 
+  <!-- ============ PAGE: LEGAL ============ -->
+  <div id="page-legal" class="hidden">
+    <h2 style="font-size:20px;font-weight:700;color:var(--text-bright);margin-bottom:24px">Mentions légales</h2>
+
+    <div class="card">
+      <div class="card-label">Conditions d'utilisation</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8">
+        <p>SeekWish est un outil open source qui permet d'importer des métadonnées de playlists publiques (titres, artistes) dans le logiciel Nicotine+.</p>
+        <p style="margin-top:12px">En utilisant cet outil, tu t'engages à :</p>
+        <ul style="margin:12px 0 12px 20px">
+          <li>Respecter les lois applicables dans ton pays en matière de droits d'auteur</li>
+          <li>N'utiliser SeekWish que pour des contenus que tu as le droit de télécharger (musique libre de droits, contenus sous licence Creative Commons, copies de sauvegarde de musique que tu possèdes)</li>
+          <li>Ne pas utiliser cet outil à des fins commerciales ou de redistribution</li>
+        </ul>
+        <p>SeekWish ne stocke, n'héberge et ne distribue aucun fichier audio. L'outil transmet uniquement des métadonnées textuelles (noms d'artistes et titres de morceaux) au logiciel Nicotine+.</p>
+        <p style="margin-top:12px">L'utilisation de SeekWish se fait à tes propres risques. Nous ne sommes pas responsables de l'usage qui est fait des informations transmises à Nicotine+.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Politique de confidentialité</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.8">
+        <p><strong style="color:var(--text-bright)">Données collectées</strong></p>
+        <ul style="margin:8px 0 16px 20px">
+          <li><strong>Compte Google</strong> : email, nom et photo de profil (fournis par Google OAuth). Utilisés uniquement pour l'authentification et l'affichage dans l'interface.</li>
+          <li><strong>Playlists synchronisées</strong> : URLs des playlists ajoutées et métadonnées des tracks (artiste, titre, album, durée). Utilisées pour la synchronisation automatique.</li>
+          <li><strong>Statut d'import</strong> : quelles tracks ont été envoyées à Nicotine+, pour éviter les doublons.</li>
+        </ul>
+        <p><strong style="color:var(--text-bright)">Hébergement</strong></p>
+        <p style="margin:8px 0 16px">Les données sont hébergées sur Supabase (serveurs EU-West, Irlande) et l'application sur Vercel. Aucune donnée n'est partagée avec des tiers.</p>
+        <p><strong style="color:var(--text-bright)">Conservation</strong></p>
+        <p style="margin:8px 0 16px">Les données sont conservées tant que ton compte est actif. Tu peux supprimer ton compte à tout moment depuis la page Profil — toutes les données associées seront supprimées immédiatement et de manière irréversible.</p>
+        <p><strong style="color:var(--text-bright)">Tes droits (RGPD)</strong></p>
+        <ul style="margin:8px 0 0 20px">
+          <li><strong>Accès</strong> : tes données sont visibles dans la section "Mes playlists"</li>
+          <li><strong>Rectification</strong> : modifie tes playlists à tout moment</li>
+          <li><strong>Suppression</strong> : supprime ton compte depuis la page Profil</li>
+          <li><strong>Portabilité</strong> : exporte tes tracks en JSON depuis l'outil d'extraction</li>
+        </ul>
+        <p style="margin-top:16px">Contact : via le dépôt GitHub du projet.</p>
+      </div>
+    </div>
+  </div>
+
   <div class="footer">
     SeekWish — open source · <a href="https://github.com/nicotine-plus/nicotine-plus" target="_blank">Nicotine+</a>
+    · <a onclick="navigate('legal')" style="cursor:pointer">Mentions légales</a>
   </div>
 </div>
 
@@ -729,7 +774,7 @@ function authHeaders() {
 
 // ── Navigation ──
 function navigate(page) {
-  const validPages = ['auth', 'landing', 'extract', 'playlists', 'profile'];
+  const validPages = ['auth', 'landing', 'extract', 'playlists', 'profile', 'legal'];
   if (!validPages.includes(page)) return;
   validPages.forEach(p => {
     const el = document.getElementById('page-' + p);
@@ -1289,7 +1334,7 @@ async function deleteAccount() {
 // Handle hash routing
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.slice(1);
-  if (['landing', 'extract', 'playlists', 'profile', 'auth'].includes(hash)) {
+  if (['landing', 'extract', 'playlists', 'profile', 'legal', 'auth'].includes(hash)) {
     navigate(hash);
   }
 });

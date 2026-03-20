@@ -2,7 +2,9 @@
 
 import json
 import os
+import re
 import sys
+import time
 from http.server import BaseHTTPRequestHandler
 
 sys.path.insert(0, os.path.dirname(__file__))  # noqa: E402
@@ -11,6 +13,9 @@ from _extractors import EXTRACTORS, detect_provider  # noqa: E402
 
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://seekwish.vercel.app")
 MAX_BODY = 10_000  # 10 KB — only needs a URL
+MAX_TRACKS = 500  # Cap response size
+# Simple playlist ID format check to reject garbage input
+PLAYLIST_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
 
 
 class handler(BaseHTTPRequestHandler):
@@ -51,13 +56,22 @@ class handler(BaseHTTPRequestHandler):
             self._json({"error": "URL non reconnue. Supporte Deezer, Spotify, YouTube Music."})
             return
 
+        # Validate playlist ID format
+        if not PLAYLIST_ID_RE.match(playlist_id):
+            self._json({"error": "Format de playlist invalide."}, 400)
+            return
+
+        # Small delay to make bulk abuse more expensive
+        time.sleep(0.5)
+
         try:
             tracks, _name = EXTRACTORS[provider](playlist_id)
         except Exception:
-            self._json({"error": "Erreur d'extraction. Réessaie ou utilise le companion local."})
+            self._json({"error": "Erreur d'extraction. Réessaie plus tard."})
             return
 
-        self._json({"provider": provider, "tracks": tracks})
+        # Cap tracks to prevent huge responses
+        self._json({"provider": provider, "tracks": tracks[:MAX_TRACKS]})
 
     def _json(self, data, status=200):
         self.send_response(status)
