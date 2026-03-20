@@ -225,6 +225,36 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
 .plugin-missing .dot{width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0}
 .plugin-missing span{font-size:13px;color:var(--text2)}
 
+/* Light theme */
+[data-theme="light"]{
+  --bg:#FFFFFF;--bg2:#F8F9FA;--bg3:#F1F3F5;--bg4:#E9ECEF;
+  --text:#343A40;--text2:#868E96;--text3:#ADB5BD;
+  --accent:#E67700;--accent2:#D9480F;--accent-dim:rgba(230,119,0,.06);
+  --green:#2B8A3E;--red:#E03131;--info:#1971C2;
+  --border:#DEE2E6;--border2:#E9ECEF;
+  --text-on-dark:#FFFFFF;
+  --text-bright:#212529;
+}
+[data-theme="light"] body{background:var(--bg)}
+[data-theme="light"] .btn{color:var(--text-on-dark)}
+[data-theme="light"] .btn-green{color:var(--text-on-dark)}
+[data-theme="light"] .toast{color:var(--text-on-dark)}
+[data-theme="light"] .how-num,.install-num{color:var(--text-on-dark)}
+
+/* Profile */
+.profile-section{margin-bottom:24px}
+.profile-section-title{font-size:13px;font-weight:600;color:var(--text-bright);margin-bottom:12px}
+.profile-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:8px}
+.profile-row-label{font-size:13px;color:var(--text)}
+.profile-row-value{font-size:13px;color:var(--text2);font-family:var(--mono)}
+.theme-switcher{display:flex;gap:4px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);padding:3px}
+.theme-btn{padding:6px 14px;font-size:12px;border-radius:6px;cursor:pointer;color:var(--text2);background:transparent;border:none;transition:all .15s;font-family:var(--font);font-weight:500}
+.theme-btn.active{background:var(--bg2);color:var(--text-bright);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+[data-theme="light"] .theme-btn.active{background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.danger-zone{border:1px solid rgba(255,107,107,.2);border-radius:var(--radius);padding:20px;background:rgba(255,107,107,.03)}
+.danger-zone-title{font-size:13px;font-weight:600;color:var(--red);margin-bottom:8px}
+.danger-zone-desc{font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5}
+
 /* Responsive small screens */
 @media(max-width:640px){
   .app{padding:32px 20px 60px}
@@ -249,11 +279,10 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
       <a onclick="navigate('landing')" id="nav-landing">Installation</a>
     </div>
     <div class="topbar-right">
-      <div class="topbar-user">
+      <div class="topbar-user" onclick="navigate('profile')" style="cursor:pointer" title="Mon profil">
         <img class="topbar-avatar" id="userAvatar" src="" alt=""/>
         <span id="userEmail"></span>
       </div>
-      <button class="topbar-logout" onclick="doLogout()">Déconnexion</button>
     </div>
   </div>
 
@@ -558,6 +587,58 @@ code{background:var(--bg3);padding:2px 8px;border-radius:4px;font-family:var(--m
     </div>
   </div>
 
+  <!-- ============ PAGE: PROFILE ============ -->
+  <div id="page-profile" class="hidden">
+
+    <h2 style="font-size:20px;font-weight:700;color:var(--text-bright);margin-bottom:24px">Mon profil</h2>
+
+    <!-- Account info -->
+    <div class="profile-section">
+      <div class="profile-section-title">Compte</div>
+      <div class="profile-row">
+        <span class="profile-row-label">Nom</span>
+        <span class="profile-row-value" id="profileName">—</span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-row-label">Email</span>
+        <span class="profile-row-value" id="profileEmail">—</span>
+      </div>
+      <div class="profile-row">
+        <span class="profile-row-label">Connexion</span>
+        <span class="profile-row-value">Google</span>
+      </div>
+    </div>
+
+    <!-- Appearance -->
+    <div class="profile-section">
+      <div class="profile-section-title">Apparence</div>
+      <div class="profile-row">
+        <span class="profile-row-label">Thème</span>
+        <div class="theme-switcher">
+          <button class="theme-btn active" id="themeDark" onclick="setTheme('dark')">Sombre</button>
+          <button class="theme-btn" id="themeLight" onclick="setTheme('light')">Clair</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="profile-section">
+      <div class="profile-section-title">Zone de danger</div>
+      <div class="danger-zone">
+        <div class="danger-zone-title">Supprimer mon compte</div>
+        <div class="danger-zone-desc">
+          Cette action est irréversible. Toutes tes playlists synchronisées et tes données seront définitivement supprimées.
+        </div>
+        <button class="btn-danger btn-sm" id="btnDeleteAccount" onclick="deleteAccount()" style="padding:8px 16px">Supprimer mon compte</button>
+      </div>
+    </div>
+
+    <!-- Logout -->
+    <div style="margin-top:24px;text-align:center">
+      <button class="btn-outline btn-sm" onclick="doLogout()" style="padding:10px 24px;font-size:13px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--radius);cursor:pointer;font-family:var(--font)">Déconnexion</button>
+    </div>
+  </div>
+
   <div class="footer">
     SeekWish — open source · <a href="https://github.com/nicotine-plus/nicotine-plus" target="_blank">Nicotine+</a>
   </div>
@@ -611,6 +692,9 @@ function setSession(session) {
   document.getElementById('userAvatar').src = meta.avatar_url || meta.picture || '';
   document.getElementById('topbar').classList.remove('hidden');
 
+  // Populate profile page
+  document.getElementById('profileName').textContent = meta.full_name || meta.name || '—';
+  document.getElementById('profileEmail').textContent = currentUser.email || '—';
 
   // If on auth or landing page, go to extract
   const hash = window.location.hash.slice(1);
@@ -645,7 +729,7 @@ function authHeaders() {
 
 // ── Navigation ──
 function navigate(page) {
-  const validPages = ['auth', 'landing', 'extract', 'playlists'];
+  const validPages = ['auth', 'landing', 'extract', 'playlists', 'profile'];
   if (!validPages.includes(page)) return;
   validPages.forEach(p => {
     const el = document.getElementById('page-' + p);
@@ -1154,10 +1238,58 @@ document.getElementById('addUrlInput').addEventListener('keydown', e => { if (e.
 setPluginPath();
 checkLocal();
 
+// ── Theme ──
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('seekwish-theme', theme);
+  document.getElementById('themeDark').classList.toggle('active', theme === 'dark');
+  document.getElementById('themeLight').classList.toggle('active', theme === 'light');
+}
+
+// Load saved theme
+(function() {
+  const saved = localStorage.getItem('seekwish-theme');
+  if (saved === 'light') setTheme('light');
+})();
+
+// ── Delete account ──
+async function deleteAccount() {
+  if (!currentSession) return;
+  const ok = confirm('Es-tu sûr de vouloir supprimer ton compte ? Cette action est irréversible.');
+  if (!ok) return;
+  const ok2 = confirm('Dernière confirmation : toutes tes playlists et données seront supprimées définitivement.');
+  if (!ok2) return;
+
+  const btn = document.getElementById('btnDeleteAccount');
+  btn.disabled = true; btn.textContent = 'Suppression...';
+
+  try {
+    const r = await fetch(API + '/api/account', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() }
+    });
+    const data = await r.json();
+    if (data.deleted) {
+      await sb.auth.signOut();
+      currentUser = null;
+      currentSession = null;
+      document.getElementById('topbar').classList.add('hidden');
+      navigate('auth');
+      toast('Compte supprimé.');
+    } else {
+      toast(data.error || 'Erreur lors de la suppression.', true);
+      btn.disabled = false; btn.textContent = 'Supprimer mon compte';
+    }
+  } catch (e) {
+    toast('Erreur: ' + e.message, true);
+    btn.disabled = false; btn.textContent = 'Supprimer mon compte';
+  }
+}
+
 // Handle hash routing
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.slice(1);
-  if (['landing', 'extract', 'add', 'playlists', 'auth'].includes(hash)) {
+  if (['landing', 'extract', 'playlists', 'profile', 'auth'].includes(hash)) {
     navigate(hash);
   }
 });
