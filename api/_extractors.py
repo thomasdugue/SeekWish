@@ -91,15 +91,112 @@ def extract_deezer(playlist_id):
 
 # ── Spotify ──
 
+def _spotify_get_token():
+    """Get an anonymous access token from Spotify's public token endpoint."""
+    # Try the public token endpoint first
+    raw = fetch(
+        "https://open.spotify.com/get_access_token?reason=transport&productType=embed",
+        timeout=10,
+    )
+    if raw:
+        try:
+            data = json.loads(raw)
+            token = data.get("accessToken")
+            if token:
+                return token
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback: extract from embed page
+    html = fetch("https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M", timeout=15)
+    if html:
+        m = re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
+        if m:
+            return m.group(1)
+
+    return None
+
+
 def extract_spotify(playlist_id):
+    # First try: API with anonymous token (supports pagination, all tracks)
+    token = _spotify_get_token()
+    if token:
+        tracks, name = _extract_spotify_api(playlist_id, token)
+        if tracks:
+            return tracks, name
+
+    # Fallback: embed page parsing (limited to ~100 tracks)
+    return _extract_spotify_embed(playlist_id)
+
+
+def _extract_spotify_api(playlist_id, token):
+    """Extract via Spotify Web API with anonymous token — supports full pagination."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "User-Agent": USER_AGENT,
+    }
+
+    # Get playlist name
+    info_raw = fetch(
+        f"https://api.spotify.com/v1/playlists/{playlist_id}?fields=name",
+        headers=headers, timeout=10,
+    )
+    name = None
+    if info_raw:
+        try:
+            name = json.loads(info_raw).get("name")
+        except json.JSONDecodeError:
+            pass
+
+    # Paginate tracks
+    tracks = []
+    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=100&fields=next,items(track(name,duration_ms,album(name),artists(name)))"
+    max_pages = 50
+    page = 0
+
+    while url and page < max_pages:
+        # SSRF guard
+        if not url.startswith("https://api.spotify.com/"):
+            break
+        raw = fetch(url, headers=headers, timeout=15)
+        if not raw:
+            break
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            break
+
+        if "error" in data:
+            break
+
+        for item in data.get("items", []):
+            track = item.get("track")
+            if not track:
+                continue
+            title = track.get("name", "")
+            artists = track.get("artists", [])
+            artist = ", ".join(a.get("name", "") for a in artists if a.get("name"))
+            duration = round(track.get("duration_ms", 0) / 1000)
+            album = track.get("album", {}).get("name", "")
+            if artist and title:
+                tracks.append({"artist": artist, "title": title, "duration": duration, "album": album})
+
+        url = data.get("next")
+        page += 1
+
+    return tracks, name
+
+
+def _extract_spotify_embed(playlist_id):
+    """Fallback: parse the embed page (limited to ~100 tracks)."""
     embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
     html = fetch(embed_url, timeout=25)
     if not html:
-        raise Exception("Impossible de contacter Spotify. Réessaie ou utilise le companion local.")
+        raise Exception("Impossible de contacter Spotify.")
 
     m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
     if not m:
-        raise Exception("Spotify a changé sa page. Utilise le companion local pour Spotify.")
+        raise Exception("Spotify a changé sa page.")
 
     try:
         data = json.loads(m.group(1))
