@@ -2,6 +2,8 @@
 
 import json
 import re
+import time
+import urllib.error
 import urllib.request
 
 USER_AGENT = (
@@ -10,17 +12,24 @@ USER_AGENT = (
 )
 
 
-def fetch(url, headers=None, timeout=15):
+def fetch(url, headers=None, timeout=15, retries=2):
     if headers is None:
         headers = {}
     if "User-Agent" not in headers:
         headers["User-Agent"] = USER_AGENT
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read().decode("utf-8", errors="replace")
-    except Exception:
-        return None
+    for attempt in range(1 + retries):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            if e.code == 429 and attempt < retries:
+                wait = int(e.headers.get("Retry-After", 2 * (attempt + 1)))
+                time.sleep(min(wait, 10))
+                continue
+            return None
+        except Exception:
+            return None
 
 
 def detect_provider(url):
@@ -183,6 +192,8 @@ def _extract_spotify_api(playlist_id, token):
 
         url = data.get("next")
         page += 1
+        if url:
+            time.sleep(0.3)  # avoid 429 between pages
 
     return tracks, name
 
