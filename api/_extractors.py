@@ -129,29 +129,49 @@ def _extract_spotify_api(playlist_id, token):
         "User-Agent": USER_AGENT,
     }
 
-    # Get playlist name
-    info_raw = fetch(
-        f"https://api.spotify.com/v1/playlists/{playlist_id}?fields=name",
-        headers=headers, timeout=10,
-    )
-    name = None
-    if info_raw:
-        try:
-            name = json.loads(info_raw).get("name")
-        except json.JSONDecodeError:
-            pass
-
-    # Paginate tracks
+    # Single call to get name + first page of tracks (saves a rate-limited request)
     tracks = []
-    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks?limit=100&fields=next,items(track(name,duration_ms,album(name),artists(name)))"
+    name = None
+    first_url = (
+        f"https://api.spotify.com/v1/playlists/{playlist_id}"
+        f"?fields=name,tracks(next,items(track(name,duration_ms,album(name),artists(name))))"
+    )
+    raw = fetch(first_url, headers=headers, timeout=15, retries=3)
+    if not raw:
+        return [], None
+    try:
+        playlist_data = json.loads(raw)
+    except json.JSONDecodeError:
+        return [], None
+    if "error" in playlist_data:
+        return [], None
+
+    name = playlist_data.get("name")
+    tracks_obj = playlist_data.get("tracks", {})
+
+    for item in tracks_obj.get("items", []):
+        track = item.get("track")
+        if not track:
+            continue
+        title = track.get("name", "")
+        artists = track.get("artists", [])
+        artist = ", ".join(a.get("name", "") for a in artists if a.get("name"))
+        duration = round(track.get("duration_ms", 0) / 1000)
+        album = track.get("album", {}).get("name", "")
+        if artist and title:
+            tracks.append({"artist": artist, "title": title, "duration": duration, "album": album})
+
+    # Paginate remaining tracks
+    url = tracks_obj.get("next")
     max_pages = 50
-    page = 0
+    page = 1
 
     while url and page < max_pages:
         # SSRF guard
         if not url.startswith("https://api.spotify.com/"):
             break
-        raw = fetch(url, headers=headers, timeout=15)
+        time.sleep(0.5)  # avoid 429 between pages
+        raw = fetch(url, headers=headers, timeout=15, retries=3)
         if not raw:
             break
         try:
@@ -176,8 +196,6 @@ def _extract_spotify_api(playlist_id, token):
 
         url = data.get("next")
         page += 1
-        if url:
-            time.sleep(0.3)  # avoid 429 between pages
 
     return tracks, name
 
