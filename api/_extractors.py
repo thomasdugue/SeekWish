@@ -1,8 +1,6 @@
 """Shared playlist extraction logic — reused by extract.py, playlists.py, sync.py."""
 
-import base64
 import json
-import os
 import re
 import time
 import urllib.error
@@ -102,56 +100,30 @@ def extract_deezer(playlist_id):
 
 # ── Spotify ──
 
-def _spotify_client_credentials_token():
-    """Get a token via Spotify Client Credentials flow (requires env vars)."""
-    client_id = os.environ.get("SPOTIFY_CLIENT_ID", "")
-    client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        return None
-    creds = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
-    try:
-        req = urllib.request.Request(
-            "https://accounts.spotify.com/api/token",
-            data=b"grant_type=client_credentials",
-            headers={
-                "Authorization": f"Basic {creds}",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
-            return data.get("access_token")
-    except Exception:
-        return None
+def _spotify_get_token():
+    """Get an anonymous access token from Spotify's embed page."""
+    html = fetch("https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M", timeout=15)
+    if html:
+        m = re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
+        if m:
+            return m.group(1)
+    return None
 
 
-def extract_spotify(playlist_id, debug=False):
-    _debug = [] if debug else None
-
-    # Try Client Credentials token first (full API access, pagination)
-    token = _spotify_client_credentials_token()
-    if _debug is not None:
-        _debug.append(f"cc_token={'yes' if token else 'no'}")
+def extract_spotify(playlist_id):
+    # Try API with embed token (supports pagination, all tracks)
+    token = _spotify_get_token()
     if token:
-        tracks, name = _extract_spotify_api(playlist_id, token, _debug)
-        if _debug is not None:
-            _debug.append(f"api_tracks={len(tracks)}")
+        tracks, name = _extract_spotify_api(playlist_id, token)
         if tracks:
-            if debug:
-                return tracks, name, _debug
             return tracks, name
 
     # Fallback: embed page parsing (limited to ~100 tracks)
-    if _debug is not None:
-        _debug.append("fallback=embed")
-    result = _extract_spotify_embed(playlist_id)
-    if debug:
-        return result[0], result[1], _debug
-    return result
+    return _extract_spotify_embed(playlist_id)
 
 
-def _extract_spotify_api(playlist_id, token, _debug=None):
-    """Extract via Spotify Web API with anonymous token — supports full pagination."""
+def _extract_spotify_api(playlist_id, token):
+    """Extract via Spotify Web API with embed token — supports full pagination."""
     headers = {
         "Authorization": f"Bearer {token}",
         "User-Agent": USER_AGENT,
@@ -168,8 +140,6 @@ def _extract_spotify_api(playlist_id, token, _debug=None):
             name = json.loads(info_raw).get("name")
         except json.JSONDecodeError:
             pass
-    if _debug is not None:
-        _debug.append(f"name_fetch={'ok' if info_raw else 'fail'}")
 
     # Paginate tracks
     tracks = []
@@ -183,22 +153,15 @@ def _extract_spotify_api(playlist_id, token, _debug=None):
             break
         raw = fetch(url, headers=headers, timeout=15)
         if not raw:
-            if _debug is not None:
-                _debug.append(f"page{page}=fetch_fail")
             break
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
-            if _debug is not None:
-                _debug.append(f"page{page}=json_fail")
             break
 
         if "error" in data:
-            if _debug is not None:
-                _debug.append(f"page{page}=error:{data['error']}")
             break
 
-        page_items = 0
         for item in data.get("items", []):
             track = item.get("track")
             if not track:
@@ -210,10 +173,6 @@ def _extract_spotify_api(playlist_id, token, _debug=None):
             album = track.get("album", {}).get("name", "")
             if artist and title:
                 tracks.append({"artist": artist, "title": title, "duration": duration, "album": album})
-                page_items += 1
-
-        if _debug is not None:
-            _debug.append(f"page{page}={page_items}tracks,has_next={bool(data.get('next'))}")
 
         url = data.get("next")
         page += 1
