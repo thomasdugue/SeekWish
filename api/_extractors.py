@@ -100,71 +100,58 @@ def extract_deezer(playlist_id):
 
 # ── Spotify ──
 
-def _spotify_get_token():
-    """Get an anonymous access token from Spotify's embed page."""
-    html = fetch("https://open.spotify.com/embed/playlist/37i9dQZF1DXcBWIGoYBM5M", timeout=15)
-    if html:
-        m = re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
-        if m:
-            return m.group(1)
-    return None
-
-
 def extract_spotify(playlist_id):
-    # Try API with embed token (supports pagination, all tracks)
-    token = _spotify_get_token()
-    if token:
-        tracks, name = _extract_spotify_api(playlist_id, token)
-        if tracks:
-            return tracks, name
+    """Extract tracks: embed page for token + first 100, then API for the rest."""
+    # Fetch the target playlist's embed page — gives us both the token and first ~100 tracks
+    embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
+    html = fetch(embed_url, timeout=20)
+    if not html:
+        return [], None
 
-    # Fallback: embed page parsing (limited to ~100 tracks)
-    return _extract_spotify_embed(playlist_id)
+    # Extract token
+    tm = re.search(r'"accessToken"\s*:\s*"([^"]+)"', html)
+    token = tm.group(1) if tm else None
+
+    # Extract initial tracks from __NEXT_DATA__
+    tracks = []
+    name = None
+    dm = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if dm:
+        try:
+            data = json.loads(dm.group(1))
+            entity = data.get("props", {}).get("pageProps", {}).get("state", {}).get("data", {}).get("entity", {})
+            name = entity.get("name")
+            for item in entity.get("trackList", []):
+                title = item.get("title", "")
+                artist = item.get("subtitle", "").replace("\xa0", " ")
+                duration = round(item.get("duration", 0) / 1000)
+                if artist and title:
+                    tracks.append({"artist": artist, "title": title, "duration": duration, "album": ""})
+        except json.JSONDecodeError:
+            pass
+
+    # If we have a token, try to get remaining tracks via API (page 2+)
+    if token and len(tracks) >= 100:
+        extra = _extract_spotify_remaining(playlist_id, token, offset=100)
+        tracks.extend(extra)
+
+    return tracks, name
 
 
-def _extract_spotify_api(playlist_id, token):
-    """Extract via Spotify Web API with embed token — supports full pagination."""
+def _extract_spotify_remaining(playlist_id, token, offset=100):
+    """Fetch tracks beyond the first page via Spotify Web API."""
     headers = {
         "Authorization": f"Bearer {token}",
         "User-Agent": USER_AGENT,
     }
-
-    # Single call to get name + first page of tracks (saves a rate-limited request)
     tracks = []
-    name = None
-    first_url = (
-        f"https://api.spotify.com/v1/playlists/{playlist_id}"
-        f"?fields=name,tracks(next,items(track(name,duration_ms,album(name),artists(name))))"
+    url = (
+        f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+        f"?offset={offset}&limit=100"
+        f"&fields=next,items(track(name,duration_ms,album(name),artists(name)))"
     )
-    raw = fetch(first_url, headers=headers, timeout=15, retries=3)
-    if not raw:
-        return [], None
-    try:
-        playlist_data = json.loads(raw)
-    except json.JSONDecodeError:
-        return [], None
-    if "error" in playlist_data:
-        return [], None
-
-    name = playlist_data.get("name")
-    tracks_obj = playlist_data.get("tracks", {})
-
-    for item in tracks_obj.get("items", []):
-        track = item.get("track")
-        if not track:
-            continue
-        title = track.get("name", "")
-        artists = track.get("artists", [])
-        artist = ", ".join(a.get("name", "") for a in artists if a.get("name"))
-        duration = round(track.get("duration_ms", 0) / 1000)
-        album = track.get("album", {}).get("name", "")
-        if artist and title:
-            tracks.append({"artist": artist, "title": title, "duration": duration, "album": album})
-
-    # Paginate remaining tracks
-    url = tracks_obj.get("next")
     max_pages = 50
-    page = 1
+    page = 0
 
     while url and page < max_pages:
         # SSRF guard
@@ -178,7 +165,6 @@ def _extract_spotify_api(playlist_id, token):
             data = json.loads(raw)
         except json.JSONDecodeError:
             break
-
         if "error" in data:
             break
 
@@ -197,37 +183,7 @@ def _extract_spotify_api(playlist_id, token):
         url = data.get("next")
         page += 1
 
-    return tracks, name
-
-
-def _extract_spotify_embed(playlist_id):
-    """Fallback: parse the embed page (limited to ~100 tracks)."""
-    embed_url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
-    html = fetch(embed_url, timeout=25)
-    if not html:
-        raise Exception("Impossible de contacter Spotify.")
-
-    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-    if not m:
-        raise Exception("Spotify a changé sa page.")
-
-    try:
-        data = json.loads(m.group(1))
-    except json.JSONDecodeError:
-        return [], None
-
-    entity = data.get("props", {}).get("pageProps", {}).get("state", {}).get("data", {}).get("entity", {})
-    name = entity.get("name")
-    track_list = entity.get("trackList", [])
-
-    tracks = []
-    for item in track_list:
-        title = item.get("title", "")
-        artist = item.get("subtitle", "").replace("\xa0", " ")
-        duration = round(item.get("duration", 0) / 1000)
-        if artist and title:
-            tracks.append({"artist": artist, "title": title, "duration": duration, "album": ""})
-    return tracks, name
+    return tracks
 
 
 # ── YouTube Music ──
