@@ -81,7 +81,6 @@ class handler(BaseHTTPRequestHandler):
         # Pass Spotify token to frontend for client-side pagination
         if extra.get("spotify_token"):
             resp["spotify_token"] = extra["spotify_token"]
-            resp["spotify_total"] = extra.get("spotify_total", 0)
         self._json(resp)
 
     def _json(self, data, status=200):

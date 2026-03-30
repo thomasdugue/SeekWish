@@ -120,14 +120,12 @@ def extract_spotify(playlist_id):
     # Extract initial tracks from __NEXT_DATA__
     tracks = []
     name = None
-    total = 0
     dm = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
     if dm:
         try:
             data = json.loads(dm.group(1))
             entity = data.get("props", {}).get("pageProps", {}).get("state", {}).get("data", {}).get("entity", {})
             name = entity.get("name")
-            total = entity.get("trackCount", 0) or 0
             for item in entity.get("trackList", []):
                 title = item.get("title", "")
                 artist = item.get("subtitle", "").replace("\xa0", " ")
@@ -137,11 +135,11 @@ def extract_spotify(playlist_id):
         except json.JSONDecodeError:
             pass
 
-    # If more tracks exist, return the token so the frontend can paginate
+    # Embed caps at ~100 tracks. If we hit that, send the token so the
+    # frontend can paginate the remaining tracks from the user's browser.
     extra = {}
-    if token and total > len(tracks):
+    if token and len(tracks) >= 100:
         extra["spotify_token"] = token
-        extra["spotify_total"] = total
 
     return tracks, name, extra
 
