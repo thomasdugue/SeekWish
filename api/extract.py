@@ -65,13 +65,24 @@ class handler(BaseHTTPRequestHandler):
         time.sleep(0.5)
 
         try:
-            tracks, _name = EXTRACTORS[provider](playlist_id)
+            result = EXTRACTORS[provider](playlist_id)
         except Exception:
             self._json({"error": "Erreur d'extraction. Réessaie plus tard."})
             return
 
+        # Spotify returns (tracks, name, extra); others return (tracks, name)
+        if len(result) == 3:
+            tracks, _name, extra = result
+        else:
+            tracks, _name, extra = result[0], result[1], {}
+
         # Cap tracks to prevent huge responses
-        self._json({"provider": provider, "tracks": tracks[:MAX_TRACKS]})
+        resp = {"provider": provider, "tracks": tracks[:MAX_TRACKS]}
+        # Pass Spotify token to frontend for client-side pagination
+        if extra.get("spotify_token"):
+            resp["spotify_token"] = extra["spotify_token"]
+            resp["spotify_total"] = extra.get("spotify_total", 0)
+        self._json(resp)
 
     def _json(self, data, status=200):
         self.send_response(status)

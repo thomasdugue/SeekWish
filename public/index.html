@@ -912,6 +912,44 @@ function setStep(n) {
   }
 }
 
+// ── Spotify client-side pagination ──
+async function fetchSpotifyRemaining(token, playlistUrl, offset, total, statusEl) {
+  // Extract playlist ID from URL
+  const m = playlistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
+  if (!m) return [];
+  const pid = m[1];
+  const tracks = [];
+  let url = `https://api.spotify.com/v1/playlists/${pid}/tracks?offset=${offset}&limit=100&fields=next,items(track(name,duration_ms,album(name),artists(name)))`;
+  let page = 0;
+  while (url && page < 50) {
+    // SSRF guard
+    if (!url.startsWith('https://api.spotify.com/')) break;
+    try {
+      const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+      if (r.status === 429) {
+        const wait = Math.min(parseInt(r.headers.get('Retry-After') || '3'), 10);
+        await new Promise(ok => setTimeout(ok, wait * 1000));
+        continue; // retry same page
+      }
+      if (!r.ok) break;
+      const data = await r.json();
+      for (const item of (data.items || [])) {
+        const t = item.track;
+        if (!t) continue;
+        const artist = (t.artists || []).map(a => a.name).filter(Boolean).join(', ');
+        const title = t.name || '';
+        const duration = Math.round((t.duration_ms || 0) / 1000);
+        const album = t.album ? t.album.name || '' : '';
+        if (artist && title) tracks.push({ artist, title, duration, album });
+      }
+      if (statusEl) statusEl.innerHTML = '<div class="spinner"></div> Chargement des tracks (' + (offset + tracks.length) + '/' + total + ')...';
+      url = data.next || null;
+      page++;
+    } catch (e) { break; }
+  }
+  return tracks;
+}
+
 // ── Extract ──
 function qtest(url) { document.getElementById('urlInput').value = url; doExtract(); }
 
@@ -941,12 +979,20 @@ async function doExtract() {
       body: JSON.stringify({url})
     });
     const data = await r.json();
-    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
 
     if (data.error) {
       err.textContent = data.error; err.classList.remove('hidden');
     } else if (data.tracks && data.tracks.length > 0) {
       tracks = data.tracks;
+
+      // If Spotify returned a token, paginate remaining tracks from the browser
+      if (data.spotify_token && data.spotify_total > tracks.length) {
+        status.innerHTML = '<div class="spinner"></div> Chargement des tracks restantes (' + tracks.length + '/' + data.spotify_total + ')...';
+        const extra = await fetchSpotifyRemaining(data.spotify_token, url, tracks.length, data.spotify_total, status);
+        tracks = tracks.concat(extra);
+      }
+
+      const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
       renderTracks(tracks, elapsed);
       setStep(2);
     } else {
