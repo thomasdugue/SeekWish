@@ -921,16 +921,20 @@ async function fetchSpotifyRemaining(token, playlistUrl, offset, statusEl) {
   const tracks = [];
   let url = `https://api.spotify.com/v1/playlists/${pid}/tracks?offset=${offset}&limit=100&fields=next,items(track(name,duration_ms,album(name),artists(name)))`;
   let page = 0;
+  let retries = 0;
   while (url && page < 50) {
     // SSRF guard
     if (!url.startsWith('https://api.spotify.com/')) break;
     try {
       const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
       if (r.status === 429) {
+        retries++;
+        if (retries > 3) break; // give up after 3 retries
         const wait = Math.min(parseInt(r.headers.get('Retry-After') || '3'), 10);
         await new Promise(ok => setTimeout(ok, wait * 1000));
         continue; // retry same page
       }
+      retries = 0; // reset on success
       if (!r.ok) break;
       const data = await r.json();
       for (const item of (data.items || [])) {
