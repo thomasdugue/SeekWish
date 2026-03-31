@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://lyfdaagdqmkdcndstgkf.supabase.co https://api.spotify.com http://localhost:8484; img-src 'self' https: data:; frame-ancestors 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://lyfdaagdqmkdcndstgkf.supabase.co http://localhost:8484; img-src 'self' https: data:; frame-ancestors 'none';">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -912,43 +912,28 @@ function setStep(n) {
   }
 }
 
-// ── Spotify client-side pagination ──
+// ── Spotify server-side pagination (proxied to avoid CORS) ──
 async function fetchSpotifyRemaining(token, playlistUrl, offset, statusEl) {
-  // Extract playlist ID from URL
   const m = playlistUrl.match(/playlist\/([a-zA-Z0-9]+)/);
   if (!m) return [];
   const pid = m[1];
   const tracks = [];
-  let url = `https://api.spotify.com/v1/playlists/${pid}/tracks?offset=${offset}&limit=100&fields=next,items(track(name,duration_ms,album(name),artists(name)))`;
-  let page = 0;
-  let retries = 0;
-  while (url && page < 50) {
-    // SSRF guard
-    if (!url.startsWith('https://api.spotify.com/')) break;
+  let currentOffset = offset;
+  let hasNext = true;
+  while (hasNext) {
     try {
-      const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
-      if (r.status === 429) {
-        retries++;
-        if (retries > 3) break; // give up after 3 retries
-        const wait = Math.min(parseInt(r.headers.get('Retry-After') || '3'), 10);
-        await new Promise(ok => setTimeout(ok, wait * 1000));
-        continue; // retry same page
-      }
-      retries = 0; // reset on success
+      if (statusEl) statusEl.innerHTML = '<div class="spinner"></div> Chargement des tracks (' + (currentOffset + tracks.length) + ')...';
+      const r = await fetch(API + '/api/spotify_page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, playlist_id: pid, offset: currentOffset })
+      });
       if (!r.ok) break;
       const data = await r.json();
-      for (const item of (data.items || [])) {
-        const t = item.track;
-        if (!t) continue;
-        const artist = (t.artists || []).map(a => a.name).filter(Boolean).join(', ');
-        const title = t.name || '';
-        const duration = Math.round((t.duration_ms || 0) / 1000);
-        const album = t.album ? t.album.name || '' : '';
-        if (artist && title) tracks.push({ artist, title, duration, album });
-      }
-      if (statusEl) statusEl.innerHTML = '<div class="spinner"></div> Chargement des tracks (' + (offset + tracks.length) + ')...';
-      url = data.next || null;
-      page++;
+      if (data.error || !data.tracks) break;
+      tracks.push(...data.tracks);
+      hasNext = data.has_next;
+      currentOffset += 100;
     } catch (e) { break; }
   }
   return tracks;
