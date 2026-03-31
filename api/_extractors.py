@@ -156,15 +156,33 @@ def extract_ytmusic(playlist_id):
     if html is None:
         return [], None
 
-    m = re.search(r"var\s+ytInitialData\s*=\s*({.*?});\s*</script>", html, re.DOTALL)
-    if not m:
-        m = re.search(r'window\["ytInitialData"\]\s*=\s*({.*?});\s*', html, re.DOTALL)
-    if not m:
-        return [], None
+    # Try new format first: initialData.push({path: '/browse', ..., data: '...'})
+    data = None
+    pushes = re.findall(
+        r"initialData\.push\(\{path:\s*'([^']+)',\s*params:\s*JSON\.parse\('[^']*'\),\s*data:\s*'(.*?)'\}\)",
+        html, re.DOTALL,
+    )
+    for path, raw in pushes:
+        if "/browse" in path:
+            try:
+                data = json.loads(raw.encode().decode("unicode_escape"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                pass
+            break
 
-    try:
-        data = json.loads(m.group(1))
-    except json.JSONDecodeError:
+    # Legacy fallback: var ytInitialData = {...};
+    if data is None:
+        m = re.search(r"var\s+ytInitialData\s*=\s*({.*?});\s*</script>", html, re.DOTALL)
+        if not m:
+            m = re.search(r'window\["ytInitialData"\]\s*=\s*({.*?});\s*', html, re.DOTALL)
+        if not m:
+            return [], None
+        try:
+            data = json.loads(m.group(1))
+        except json.JSONDecodeError:
+            return [], None
+
+    if data is None:
         return [], None
 
     # Try to extract playlist name
